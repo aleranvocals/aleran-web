@@ -4,8 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Áleran — Vocal Coach & Productor Musical Integral</title>
-<meta name="description" content="Áleran. Vocal coach, producción musical 360° y proyecto artístico. Clases de canto, estudio de grabación y música original.">
+<meta name="description" content="Áleran. Vocal coach, producción musical 360° y proyecto artístico. Clases de canto presenciales u online, estudio de grabación profesional y música original.">
 <link rel="canonical" href="https://www.aleranvocals.es/">
+
+<!-- FAVICON / ICONOS -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0a0808">
 
 <!-- VISTA PREVIA PARA WHATSAPP Y REDES SOCIALES (OPEN GRAPH) -->
 <meta property="og:type" content="website">
@@ -15,6 +24,8 @@
 <meta property="og:title" content="Áleran — Vocal Coach & Productor Musical Integral">
 <meta property="og:description" content="Técnica vocal con salud y producción musical 360°. Reserva tu clase o produce tu canción.">
 <meta property="og:image" content="https://www.aleranvocals.es/foto-alera-coach.webp">
+<meta property="og:image:type" content="image/webp">
+<meta property="og:image:alt" content="Áleran, vocal coach y productor musical">
 
 <!-- VISTA PREVIA PARA TWITTER / X -->
 <meta name="twitter:card" content="summary_large_image">
@@ -128,7 +139,10 @@
   :focus-visible { outline: 1px solid var(--crimson-bright); outline-offset: 4px; }
 
   .container { max-width: var(--container); margin: 0 auto; padding: 0 32px; }
-  section { scroll-margin-top: 88px; position: relative; padding: 120px 0; }
+  section { scroll-margin-top: 88px; position: relative; padding: 45px 0; }
+  @media (max-width: 768px) {
+    section { padding: 25px 0; }
+  }
 
   .eyebrow {
     font-family: var(--font-mono);
@@ -150,7 +164,7 @@
   }
   h1 em { text-shadow: 0 0 28px rgba(192,34,65,0.45); }
 
-  .section-head { max-width: 660px; margin-bottom: 56px; }
+  .section-head { max-width: 660px; margin-bottom: 16px; }
   .section-head h2 { font-size: clamp(32px, 4.2vw, 50px); line-height: 1.06; }
   .section-head p.lede { margin-top: 16px; color: var(--bone-dim); font-size: 16px; max-width: 56ch; }
 
@@ -549,6 +563,45 @@
   .lion-copy p { color: var(--bone-dim); font-size: 14.5px; max-width: 46ch; }
 
   /* ==========================================================================
+     10B. LANZAMIENTO — SINGLE DEBUT (aparte de las clases)
+     ========================================================================== */
+  .release { background: var(--bg); padding: 50px 0 56px; }
+  .release-divider {
+    max-width: 220px; margin: 0 auto; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--line) 50%, transparent);
+  }
+  .release-eyebrow {
+    text-align: center; margin: 22px 0 26px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .release-banner-wrap {
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: #0a0808;
+    max-width: 1360px; margin: 0 auto; overflow: hidden;
+  }
+  .release-banner-img { display: block; width: 100%; height: auto; }
+  .release-actions { margin-top: 30px; display: flex; justify-content: center; }
+  .release-actions .btn-row { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+
+  /* En móvil el banner deja de ser un bloque "importante" a todo lo ancho:
+     se sirve la MISMA imagen panorámica (banner-lanzamiento.webp) sin recortar,
+     encogida y enmarcada como un elemento discreto, con todo más apretado. */
+  @media (max-width: 640px) {
+    .release { padding: 18px 0 20px !important; }
+    .release-eyebrow { margin: 8px 0 10px !important; }
+    .release-divider { max-width: 140px; }
+    .release-banner-wrap {
+      max-width: 300px; margin: 0 auto; border: 1px solid var(--line); border-radius: 2px;
+    }
+    .release-banner-img { max-width: none; }
+    .release-actions { margin-top: 12px !important; }
+    .release-actions .btn-row { gap: 10px; }
+    .release-actions .btn-row .btn { padding: 11px 18px; font-size: 10.5px; }
+    #lanzamiento > .release-divider[style] { margin-top: 20px !important; }
+  }
+
+  /* ==========================================================================
      11. ÁLERAN ARTISTA
      ========================================================================== */
   .artist { background: var(--bg); }
@@ -628,6 +681,19 @@
     .hero { padding-top: 140px !important; }
     .hero p { text-align: left !important; }
 
+    /* Más aire lateral en móvil sin apretar tanto el contenido */
+    .container { padding: 0 20px !important; }
+
+    /* Evita que el texto del botón de audio se salga de su caja y se corte */
+    .hero-ctas .btn,
+    #btnHeroPlay {
+      white-space: normal !important;
+      line-height: 1.35 !important;
+      text-align: center !important;
+    }
+    #btnHeroPlay { padding: 12px 16px !important; }
+    .hero-ctas > div[style] { flex-wrap: wrap !important; }
+
     /* Reducción de espacio vertical general en móvil */
     section { padding: 55px 0 !important; }
 
@@ -699,6 +765,8 @@
     }
 
     .artist .container, .contact .container { grid-template-columns: 1fr; }
+    .contact .container { gap: 28px !important; }
+    .social-row { margin-bottom: 0 !important; }
     .plans-grid, .testimonials-grid { grid-template-columns: 1fr; }
     .lion-banner { grid-template-columns: 1fr; text-align: center; }
     .lion-logo { max-width: 160px; margin: 0 auto; }
@@ -746,17 +814,21 @@
 
     /* TARJETAS DE REELS */
     .reel-card {
-      flex: 0 0 80% !important;
-      max-width: 80% !important;
-      min-width: 260px !important;
-      height: 530px !important; 
+      flex: 0 0 72% !important;
+      max-width: 72% !important;
+      min-width: 230px !important;
+      height: 480px !important; 
       scroll-snap-align: start !important; 
       background: var(--bg-panel-2); 
       border: 1px solid var(--line); 
       border-radius: 12px; 
       overflow: hidden !important;
       position: relative;
+      transition: opacity .3s ease, transform .3s ease, border-color .3s ease;
     }
+    /* El atenuado solo se activa una vez el script confirma que puede controlar el estado activo */
+    .reels-grid.reels-observed .reel-card { opacity: 0.5; transform: scale(0.96); }
+    .reels-grid.reels-observed .reel-card.is-active { opacity: 1; transform: scale(1); border-color: var(--crimson); }
     
     .reel-card iframe,
     .reel-card blockquote { 
@@ -965,10 +1037,79 @@
   @media (max-width: 640px) {
     .audio-player { right: 12px; left: 12px; bottom: 12px; width: auto; }
   }
+
+  /* ==========================================================================
+     BOTÓN FLOTANTE DE WHATSAPP
+     ========================================================================== */
+  .whatsapp-float {
+    position: fixed;
+    left: 24px; bottom: 24px;
+    z-index: 480;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: #25D366;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 12px 30px -8px rgba(0,0,0,0.65);
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .whatsapp-float:hover { transform: scale(1.08); box-shadow: 0 16px 36px -6px rgba(0,0,0,0.75); }
+  .whatsapp-float::before {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: #25D366;
+    opacity: 0.55;
+    z-index: -1;
+    animation: whatsappPing 2.4s ease-out infinite;
+  }
+  @keyframes whatsappPing {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(1.7); opacity: 0; }
+  }
+  @media (max-width: 640px) {
+    .whatsapp-float { left: 16px; bottom: 16px; width: 50px; height: 50px; }
+  }
+
+  /* ==========================================================================
+     BOTÓN FLOTANTE DE MÚSICA (junto al de WhatsApp)
+     ========================================================================== */
+  .music-float {
+    position: fixed;
+    left: 24px; bottom: 96px; /* mismo ancho que WhatsApp para quedar centrado, con separación */
+    z-index: 480;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--crimson);
+    border: 1px solid var(--crimson-bright);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 12px 30px -8px rgba(0,0,0,0.65);
+    transition: transform .25s ease, box-shadow .25s ease, background .25s ease;
+  }
+  .music-float:hover { transform: scale(1.08); background: var(--crimson-bright); box-shadow: 0 16px 36px -6px rgba(0,0,0,0.75); }
+  .music-float.is-playing { animation: audioPulse 1.8s ease-in-out infinite; }
+  @media (max-width: 640px) {
+    .music-float { left: 16px; bottom: 78px; width: 50px; height: 50px; }
+  }
 </style>
 
 </head>
 <body>
+
+<!-- SPRITE SVG: define una sola vez los iconos de WhatsApp reutilizados en todo el sitio -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="icon-whatsapp-outline" viewBox="0 0 24 24">
+      <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/>
+      <path d="M9 10a0.5 .5 0 0 0 1 0V9a0.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a0.5 .5 0 0 0 0 -1h-1a0.5 .5 0 0 0 0 1"/>
+    </symbol>
+    <symbol id="icon-whatsapp-filled" viewBox="0 0 24 24">
+      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.124-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+    </symbol>
+  </defs>
+</svg>
 
 <!-- GLOW AMBIENTAL DE FONDO -->
 <div class="ambient-glow" aria-hidden="true">
@@ -1005,33 +1146,29 @@
   <audio id="audioEl" src="abismo.mp3" preload="none"></audio>
 </div>
 
+<!-- BOTÓN FLOTANTE DE WHATSAPP -->
+<a href="https://wa.me/34632926726?text=Hola%20Áleran,%20tengo%20una%20duda" target="_blank" rel="noopener" class="whatsapp-float" aria-label="Escríbeme por WhatsApp">
+  <svg width="26" height="26" aria-hidden="true" style="fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:2;"><use href="#icon-whatsapp-outline"/></svg>
+</a>
+
+<!-- BOTÓN FLOTANTE DE MÚSICA (controla el mismo reproductor de "Abismo") -->
+<button type="button" id="musicFloatBtn" class="music-float" aria-label="Escuchar música del sitio (Abismo)">
+  <svg class="icon-play" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:2;">
+    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+  </svg>
+  <svg class="icon-pause" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="display:none;">
+    <path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor"/>
+  </svg>
+</button>
+
 <!-- BARRA DE PROGRESO DE LECTURA -->
 <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
 
-<!-- ESTILOS GLOBALES DE ESPACIADO COMPACTO (PC vs MÓVIL) -->
+<!-- ESTILOS EXCLUSIVOS DE PRODUCCIÓN MUSICAL EN MÓVIL -->
+<!-- (Los paddings generales de section/.section-head/.faq/.contact ya viven en la
+     hoja de estilos principal del <head>, fusionados ahí para no duplicar reglas). -->
 <style>
-  /* ==========================================================================
-     CONFIGURACIÓN GENERAL DE SECCIONES (PC - Reducido)
-     ========================================================================== */
-  section {
-    padding-top: 45px;
-    padding-bottom: 45px;
-  }
-
-  /* Reducir márgenes inferiores en cabeceras de sección */
-  .section-head {
-    margin-bottom: 16px !important;
-  }
-
-  /* ==========================================================================
-     REGLAS EXCLUSIVAS PARA MÓVILES (Súper compacto)
-     ========================================================================== */
   @media (max-width: 768px) {
-    section {
-      padding-top: 25px !important;
-      padding-bottom: 25px !important;
-    }
-
     /* Reducir separaciones en Producción Musical */
     .prod-services {
       display: flex !important;
@@ -1075,30 +1212,6 @@
       margin: 0 !important;
     }
 
-    /* FAQ y Contacto compactos en móvil */
-    section.faq {
-      padding-top: 25px !important;
-      padding-bottom: 25px !important;
-    }
-    section.contact {
-      padding-top: 25px !important;
-      padding-bottom: 25px !important;
-    }
-    .faq-accordion {
-      margin-bottom: 0 !important;
-    }
-  }
-
-  /* Ajustes específicos para PC para mantener la simetría compacta */
-  @media (min-width: 769px) {
-    section.faq {
-      padding-top: 45px !important;
-      padding-bottom: 45px !important;
-    }
-    section.contact {
-      padding-top: 45px !important;
-      padding-bottom: 45px !important;
-    }
   }
 </style>
 
@@ -1106,9 +1219,10 @@
 <header class="nav">
   <div class="container">
     <a href="#top" class="brand">
-      <img src="logo.webp" alt="Áleran Logo">
+      <img src="logo.webp" alt="Áleran Logo" width="1500" height="1014">
     </a>
     <nav class="links" id="navLinks">
+      <a href="#lanzamiento">Nuevo Single</a>
       <a href="#vocal-coach">Vocal Coach</a>
       <a href="#planes">Planes</a>
       <a href="#artista">Áleran Artista</a>
@@ -1116,7 +1230,7 @@
       <a href="#faq">FAQ</a>
       <a href="#contacto">Contacto</a>
       <a href="https://wa.me/34632926726?text=Hola%20Áleran,%20quiero%20información%20sobre%20las%20clases%20de%20canto" target="_blank" rel="noopener" class="btn whatsapp small">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 14px; height: 14px; min-width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a0.5 .5 0 0 0 1 0V9a0.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a0.5 .5 0 0 0 0 -1h-1a0.5 .5 0 0 0 0 1"/></svg>
+        <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; min-width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><use href="#icon-whatsapp-outline"/></svg>
         WhatsApp
       </a>
     </nav>
@@ -1139,7 +1253,7 @@
      <div class="hero-ctas" data-reveal="fade" style="--reveal-delay:.34s">
       <div style="display: flex; gap: 8px; width: 100%; max-width: 480px; margin-bottom: 8px;">
         <a href="https://wa.me/34632926726?text=Hola%20Áleran,%20quiero%20reservar%20una%20clase%20de%20canto" target="_blank" rel="noopener" class="btn whatsapp" style="flex: 1; min-width: 0; padding: 10px 2px; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap;">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; min-width: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a0.5 .5 0 0 0 1 0V9a0.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a0.5 .5 0 0 0 0 -1h-1a0.5 .5 0 0 0 0 1"/></svg>
+          <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; min-width: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><use href="#icon-whatsapp-outline"/></svg>
           <span>Reserva tu clase</span>
         </a>
         <a href="#produccion" class="btn gold" style="flex: 1; min-width: 0; padding: 10px 2px; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap;">
@@ -1165,6 +1279,25 @@
     </div>
   </div>
   <span class="scroll-cue" aria-hidden="true"></span>
+</section>
+
+<!-- LANZAMIENTO — SINGLE DEBUT (aparte de las clases) -->
+<section class="release" id="lanzamiento" data-reveal>
+  <div class="release-divider" aria-hidden="true"></div>
+  <p class="release-eyebrow">— Estoy de lanzamiento —</p>
+  <div class="release-banner-wrap">
+    <!-- Misma imagen panorámica en todas las pantallas: en escritorio a todo lo ancho,
+         en móvil encogida y enmarcada (ver regla @media 640px) para que sea un detalle
+         discreto y no un bloque protagonista. -->
+    <img class="release-banner-img" src="banner-lanzamiento.webp" alt="Áleran — Del Abismo a la Eternidad. Lanzamiento oficial, single debut, 15 de septiembre de 2026. Disponible en Spotify, Apple Music, YouTube Music, Amazon Music y más plataformas." width="2200" height="800" loading="lazy">
+  </div>
+  <div class="container release-actions">
+    <div class="btn-row">
+      <a href="#artista" class="btn filled">Escuchar el adelanto</a>
+      <a href="https://www.instagram.com/aleran_vocals/" target="_blank" rel="noopener" class="btn ghost">Seguir para el estreno</a>
+    </div>
+  </div>
+  <div class="release-divider" aria-hidden="true" style="margin-top: 44px;"></div>
 </section>
 
 <!-- VOCAL COACH -->
@@ -1224,7 +1357,7 @@
         <p style="margin: 0;">Escríbeme por WhatsApp y coordinamos tu primera clase o prueba de nivel.</p>
       </div>
       <a href="https://wa.me/34632926726?text=Hola%20Áleran,%20quiero%20reservar%20mi%20primera%20clase%20de%20canto" target="_blank" rel="noopener" class="btn whatsapp" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; font-size: 0.78rem; width: 100%; max-width: 100%; text-align: center; box-sizing: border-box; line-height: 1.2; margin-top: 10px;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; min-width: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; flex-shrink: 0;"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a0.5 .5 0 0 0 1 0V9a0.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a0.5 .5 0 0 0 0 -1h-1a0.5 .5 0 0 0 0 1"/></svg>
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; min-width: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; flex-shrink: 0;"><use href="#icon-whatsapp-outline"/></svg>
         <span>Hablar directamente por WhatsApp</span>
       </a>
     </div>
@@ -1257,8 +1390,8 @@
             <li>Resolución de dudas y soporte</li>
           </ul>
         </div>
-        <a href="https://wa.me/34632926726?text=Hola,%20me%20interesan%20las%20Clases%20Individuales.%20¿Me%20das%20más%20detalles%20sobre%20disponibilidad?" target="_blank" class="btn whatsapp small" style="width:100%; justify-content:center;">
-          <svg viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.124-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+        <a href="https://wa.me/34632926726?text=Hola,%20me%20interesan%20las%20Clases%20Individuales.%20¿Me%20das%20más%20detalles%20sobre%20disponibilidad?" target="_blank" rel="noopener" class="btn whatsapp small" style="width:100%; justify-content:center;">
+          <svg viewBox="0 0 24 24"><use href="#icon-whatsapp-filled"/></svg>
           Consultar por WhatsApp
         </a>
       </div>
@@ -1276,8 +1409,8 @@
             <li>Facilidades de pago y fraccionamiento</li>
           </ul>
         </div>
-        <a href="https://wa.me/34632926726?text=Hola,%20me%20interesan%20los%20Programas%20Mensuales%20de%20entrenamiento%20vocal.%20¿Me%20das%20más%20detalles?" target="_blank" class="btn whatsapp small" style="width:100%; justify-content:center;">
-          <svg viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.124-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+        <a href="https://wa.me/34632926726?text=Hola,%20me%20interesan%20los%20Programas%20Mensuales%20de%20entrenamiento%20vocal.%20¿Me%20das%20más%20detalles?" target="_blank" rel="noopener" class="btn whatsapp small" style="width:100%; justify-content:center;">
+          <svg viewBox="0 0 24 24"><use href="#icon-whatsapp-filled"/></svg>
           Consultar Planes por WhatsApp
         </a>
       </div>
@@ -1295,8 +1428,8 @@
             <li>Desarrollo de proyecto artístico</li>
           </ul>
         </div>
-        <a href="https://wa.me/34632926726?text=Hola,%20me%20interesa%20el%20servicio%20de%20Vocal%20Coach%20+%20Producción.%20¿Podemos%20hablarlo?" target="_blank" class="btn whatsapp small" style="width:100%; justify-content:center;">
-          <svg viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.124-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+        <a href="https://wa.me/34632926726?text=Hola,%20me%20interesa%20el%20servicio%20de%20Vocal%20Coach%20+%20Producción.%20¿Podemos%20hablarlo?" target="_blank" rel="noopener" class="btn whatsapp small" style="width:100%; justify-content:center;">
+          <svg viewBox="0 0 24 24"><use href="#icon-whatsapp-filled"/></svg>
           Consultar por WhatsApp
         </a>
       </div>
@@ -1349,6 +1482,42 @@
         <div class="testimonial-author" style="margin-top: 10px;">
           <strong>Luisa Serrano</strong>
           <span>Alumna de Canto · Ago 2024</span>
+        </div>
+      </div>
+
+      <!-- Tarjeta 4 -->
+      <div class="testimonial-card" data-reveal style="padding: 16px; --reveal-delay:.05s">
+        <div>
+          <div style="color: #f1c40f; font-size: 14px; margin-bottom: 6px;">★★★★★</div>
+          <p style="margin: 0;">"Aprendí a hacer notas altas para cantar Metal y Rock gracias profe."</p>
+        </div>
+        <div class="testimonial-author" style="margin-top: 10px;">
+          <strong>Marisol Castro</strong>
+          <span>Alumna de Canto · Ago 2024</span>
+        </div>
+      </div>
+
+      <!-- Tarjeta 5 -->
+      <div class="testimonial-card" data-reveal style="padding: 16px; --reveal-delay:.15s">
+        <div>
+          <div style="color: #f1c40f; font-size: 14px; margin-bottom: 6px;">★★★★★</div>
+          <p style="margin: 0;">"Excelente Maestro. Anteriormente había tomado clases con diferentes profesores y no había podido desarrollar mi voz mixta, hasta que comencé con Luis Felipe. Explica muy bien y tiene mucha paciencia. Recomendado al 1000000."</p>
+        </div>
+        <div class="testimonial-author" style="margin-top: 10px;">
+          <strong>Abril Díaz</strong>
+          <span>Alumna de Canto · Ago 2024</span>
+        </div>
+      </div>
+
+      <!-- Tarjeta 6 -->
+      <div class="testimonial-card" data-reveal style="padding: 16px; --reveal-delay:.25s">
+        <div>
+          <div style="color: #f1c40f; font-size: 14px; margin-bottom: 6px;">★★★★★</div>
+          <p style="margin: 0;">"Excelente, se hace entender muy bien. Me ha facilitado el entendimiento para que, cuando paso a la práctica, todo fluya. Muy chéveres las clases."</p>
+        </div>
+        <div class="testimonial-author" style="margin-top: 10px;">
+          <strong>Mauricio Jaramillo</strong>
+          <span>Alumno de Canto · Ago 2024</span>
         </div>
       </div>
     </div>
@@ -1494,7 +1663,7 @@
 
       <div class="social-row">
         <a class="btn whatsapp small" href="https://wa.me/34632926726?text=Hola%20Áleran,%20quiero%20información%20sobre%20tus%20servicios" target="_blank" rel="noopener">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 14px; height: 14px; min-width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a0.5 .5 0 0 0 1 0V9a0.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a0.5 .5 0 0 0 0 -1h-1a0.5 .5 0 0 0 0 1"/></svg>
+          <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; min-width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><use href="#icon-whatsapp-outline"/></svg>
           WhatsApp Directo
         </a>
         <a class="social-link" href="https://www.instagram.com/aleran_vocals/" target="_blank" rel="noopener">
@@ -1701,12 +1870,15 @@
     const progress = document.getElementById('audioPlayerProgress');
     const seekBar = document.getElementById('audioPlayerBar');
     const heroBtn = document.getElementById('btnHeroPlay');
+    const musicFloatBtn = document.getElementById('musicFloatBtn');
     const volumeSlider = document.getElementById('audioPlayerVolume');
     const muteBtn = document.getElementById('audioPlayerMute');
     if (!player || !audio || !toggle) return;
 
     const iconPlay = toggle.querySelector('.icon-play');
     const iconPause = toggle.querySelector('.icon-pause');
+    const mfIconPlay = musicFloatBtn ? musicFloatBtn.querySelector('.icon-play') : null;
+    const mfIconPause = musicFloatBtn ? musicFloatBtn.querySelector('.icon-pause') : null;
     const iconVolOn = muteBtn ? muteBtn.querySelector('.icon-vol-on') : null;
     const iconVolOff = muteBtn ? muteBtn.querySelector('.icon-vol-off') : null;
     let lastVolume = 0.4;
@@ -1740,6 +1912,14 @@
       toggle.setAttribute('aria-label', isPlaying ? 'Pausar muestra de audio' : 'Reproducir muestra de audio');
       if (iconPlay) iconPlay.style.display = isPlaying ? 'none' : '';
       if (iconPause) iconPause.style.display = isPlaying ? '' : 'none';
+
+      // Refleja el mismo estado en el botón flotante de música
+      if (musicFloatBtn) {
+        musicFloatBtn.classList.toggle('is-playing', isPlaying);
+        musicFloatBtn.setAttribute('aria-label', isPlaying ? 'Pausar música del sitio' : 'Escuchar música del sitio (Abismo)');
+        if (mfIconPlay) mfIconPlay.style.display = isPlaying ? 'none' : '';
+        if (mfIconPause) mfIconPause.style.display = isPlaying ? '' : 'none';
+      }
     }
     function setMuteUI(isMuted){
       if (iconVolOn) iconVolOn.style.display = isMuted ? 'none' : '';
@@ -1751,10 +1931,20 @@
       openPlayer();
       playAudio();
     });
+    // Botón flotante de música: abre el reproductor y alterna play/pause del mismo audio "abismo.mp3"
+    if (musicFloatBtn) musicFloatBtn.addEventListener('click', function(){
+      openPlayer();
+      if (audio.paused) playAudio(); else pauseAudio();
+    });
     toggle.addEventListener('click', function(){
       if (audio.paused) playAudio(); else pauseAudio();
     });
     if (closeBtn) closeBtn.addEventListener('click', closePlayer);
+
+    // Si se hace clic en un reel de Instagram, se pausa la música del sitio (ver initReelsAudioExclusivity)
+    document.addEventListener('reels:active', function(){
+      pauseAudio();
+    });
     audio.addEventListener('timeupdate', function(){
       if (progress && audio.duration && !isSeeking) progress.style.width = (audio.currentTime / audio.duration * 100) + '%';
     });
@@ -1838,6 +2028,61 @@
     }, { passive: true });
     update();
   }, 'initAmbientGlow');
+
+  // Slider de reels: marca la tarjeta activa/centrada y detiene el vídeo de la que sale de foco
+  safe(function initReelsSlider(){
+    const grid = document.querySelector('.reels-grid');
+    const cards = Array.from(document.querySelectorAll('.reel-card'));
+    if (!grid || !cards.length || !('IntersectionObserver' in window)) return;
+    if (!window.matchMedia('(max-width: 980px)').matches) return; // en escritorio se ven las 3 a la vez, no aplica
+
+    // Solo resalta visualmente la tarjeta activa/centrada al deslizar (sin recargar el
+    // iframe): recargar iframes de Instagram al cambiar de tarjeta es poco fiable y a
+    // veces los deja en blanco, así que ya no se "detiene" el vídeo de esta forma.
+    const ratios = new Map();
+    let activeCard = cards[0];
+    activeCard.classList.add('is-active');
+    grid.classList.add('reels-observed');
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => ratios.set(entry.target, entry.intersectionRatio));
+
+      let best = activeCard, bestRatio = ratios.get(activeCard) || 0;
+      ratios.forEach((ratio, card) => {
+        if (ratio > bestRatio) { bestRatio = ratio; best = card; }
+      });
+
+      if (best !== activeCard && bestRatio > 0.55) {
+        activeCard.classList.remove('is-active');
+        activeCard = best;
+        activeCard.classList.add('is-active');
+      }
+    }, { threshold: [0, 0.25, 0.5, 0.55, 0.6, 0.75, 1] });
+
+    cards.forEach(card => observer.observe(card));
+  }, 'initReelsSlider');
+
+  // Al hacer clic en un reel de Instagram, se pausa la música "abismo.mp3" del sitio
+  // (evento 'reels:active'). Nota: se descartó recargar/detener los otros reels al hacer
+  // clic, porque interrumpía su carga y a veces los dejaba en blanco.
+  safe(function initReelsAudioExclusivity(){
+    const frames = Array.from(document.querySelectorAll('.reel-card iframe'));
+    if (!frames.length) return;
+
+    // Los reels son iframes de OTRO origen (Instagram): un clic dentro de ellos queda
+    // "atrapado" ahí y nunca llega como evento normal (pointerdown/click) a esta página,
+    // así que no podemos escucharlo directamente. La única señal que sí cruza entre
+    // documentos es el cambio de foco: al pulsar dentro del iframe, la ventana principal
+    // pierde el foco (blur) y ese iframe pasa a ser document.activeElement. Con eso
+    // detectamos de forma fiable que el usuario ha interactuado con un reel.
+    window.addEventListener('blur', function(){
+      setTimeout(function(){
+        if (document.activeElement && frames.includes(document.activeElement)) {
+          document.dispatchEvent(new Event('reels:active'));
+        }
+      }, 0);
+    });
+  }, 'initReelsAudioExclusivity');
 
   // Menú hamburguesa móvil
   (function(){
