@@ -454,21 +454,33 @@
   /* Facade "toca para cargar": evita descargar el SDK de Instagram hasta que el usuario quiere ver el reel */
   .reel-facade {
     width: 100%; height: 100%;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 18px;
-    background:
-      radial-gradient(circle at 50% 35%, rgba(147,23,44,0.22), transparent 60%),
-      var(--bg-panel-2);
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    gap: 14px;
     border: none; cursor: pointer; color: var(--bone);
-    position: relative; padding: 0;
+    position: relative; padding: 24px 16px;
+    overflow: hidden;
+  }
+  .reel-facade-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center 20%;
+    z-index: 0;
+  }
+  .reel-facade-overlay {
+    position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(to top, rgba(8,6,6,0.92) 0%, rgba(8,6,6,0.35) 45%, rgba(8,6,6,0.05) 65%, rgba(8,6,6,0.35) 100%);
   }
   .reel-facade-ig {
-    width: 34px; height: 34px; color: var(--bone-dim); opacity: 0.7;
+    position: absolute; top: 14px; right: 14px; z-index: 2;
+    width: 22px; height: 22px; color: var(--bone); opacity: 0.85;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
   }
   .reel-facade-play {
+    position: relative; z-index: 2;
     width: 60px; height: 60px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(192,34,65,0.16); border: 1px solid var(--crimson-bright);
+    background: rgba(192,34,65,0.22); border: 1px solid var(--crimson-bright);
+    backdrop-filter: blur(2px);
     transition: background var(--dur-fast) ease, transform var(--dur-fast) ease;
   }
   .reel-facade-play svg { width: 22px; height: 22px; color: var(--crimson-bright); margin-left: 3px; }
@@ -477,8 +489,10 @@
   .reel-facade:hover .reel-facade-play svg,
   .reel-facade:focus-visible .reel-facade-play svg { color: var(--bg); }
   .reel-facade-tag {
+    position: relative; z-index: 2;
     font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--bone-dim);
+    color: var(--bone);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
   .reel-card.is-loaded { padding: 0; }
 
@@ -1391,6 +1405,8 @@
     <div class="reels-grid">
       <div class="reel-card" data-reveal>
         <button type="button" class="reel-facade" data-embed-src="https://www.instagram.com/p/DUEPQmzDPXa/embed" data-embed-title="Técnica de Respiración" aria-label="Cargar y reproducir el reel de Instagram: Técnica de Respiración">
+          <img class="reel-facade-img" src="reel-respiracion.webp" alt="" loading="lazy" width="640" height="1145">
+          <span class="reel-facade-overlay"></span>
           <svg class="reel-facade-ig" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-instagram"/></svg>
           <span class="reel-facade-play"><svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-play"/></svg></span>
           <span class="reel-facade-tag">Técnica de Respiración</span>
@@ -1399,6 +1415,8 @@
       </div>
       <div class="reel-card" data-reveal style="--reveal-delay:.1s">
         <button type="button" class="reel-facade" data-embed-src="https://www.instagram.com/p/DbELFOhMNml/embed" data-embed-title="Rango Vocal" aria-label="Cargar y reproducir el reel de Instagram: Rango Vocal">
+          <img class="reel-facade-img" src="reel-rango.webp" alt="" loading="lazy" width="640" height="1145">
+          <span class="reel-facade-overlay"></span>
           <svg class="reel-facade-ig" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-instagram"/></svg>
           <span class="reel-facade-play"><svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-play"/></svg></span>
           <span class="reel-facade-tag">Rango Vocal</span>
@@ -1407,6 +1425,8 @@
       </div>
       <div class="reel-card" data-reveal style="--reveal-delay:.2s">
         <button type="button" class="reel-facade" data-embed-src="https://www.instagram.com/p/DM8f0G1M2Nl/embed" data-embed-title="Interpretación" aria-label="Cargar y reproducir el reel de Instagram: Interpretación">
+          <img class="reel-facade-img" src="reel-interpretacion.webp" alt="" loading="lazy" width="640" height="1143">
+          <span class="reel-facade-overlay"></span>
           <svg class="reel-facade-ig" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-instagram"/></svg>
           <span class="reel-facade-play"><svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-play"/></svg></span>
           <span class="reel-facade-tag">Interpretación</span>
