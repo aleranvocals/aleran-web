@@ -76,11 +76,13 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="image" href="foto-alera-coach.webp" fetchpriority="high">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Work+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- Precarga de la foto de portada: versión móvil ligera por debajo de 768px, versión de escritorio a partir de ahí -->
+<link rel="preload" as="image" href="foto-alera-coach-movil.webp" fetchpriority="high" media="(max-width: 768px)">
+<link rel="preload" as="image" href="foto-alera-coach.webp" fetchpriority="high" media="(min-width: 769px)">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Work+Sans:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
 <!-- Si JavaScript está desactivado, el contenido con animación de entrada se muestra igualmente -->
-<noscript><style>[data-reveal]{ opacity: 1 !important; transform: none !important; filter: none !important; } hr.divider{ transform: scaleX(1) !important; } .audio-player, .cursor-dot, .cursor-ring{ display: none !important; }</style></noscript>
+<noscript><style>[data-reveal]{ opacity: 1 !important; transform: none !important; filter: none !important; } hr.divider{ transform: scaleX(1) !important; } .audio-player, .cursor-dot, .cursor-ring, .reel-facade{ display: none !important; }</style></noscript>
 
 <style>
   /* ==========================================================================
@@ -225,7 +227,8 @@
   .glow-3 { width: 480px; height: 480px; top: 145vh; left: 6vw; opacity: 0.2; }
   .glow-4 { width: 520px; height: 520px; top: 230vh; right: 4vw; opacity: 0.18; }
   @media (max-width: 760px) {
-    .ambient-glow .glow { filter: blur(70px); }
+    /* Menos desenfoque en móvil: se nota poco visualmente y alivia bastante la GPU */
+    .ambient-glow .glow { filter: blur(45px); }
   }
 
   /* Estado activo del enlace de navegación según la sección visible */
@@ -355,11 +358,19 @@
     border: 1px solid var(--line);
     background:
       linear-gradient(160deg, rgba(147,23,44,0.18), transparent 60%),
-      #141011 url('foto-alera-coach.webp') center/cover no-repeat;
+      #141011 url('foto-alera-coach-movil.webp') center/cover no-repeat;
     box-shadow: 0 40px 80px -30px rgba(0,0,0,0.8);
     transform-style: preserve-3d;
     transition: transform .5s var(--ease-out-soft), opacity var(--dur-slow) var(--ease-out-expo);
     will-change: transform, opacity;
+  }
+  /* En pantallas de escritorio se sirve la foto de mayor resolución */
+  @media (min-width: 769px) {
+    .hero-visual {
+      background:
+        linear-gradient(160deg, rgba(147,23,44,0.18), transparent 60%),
+        #141011 url('foto-alera-coach.webp') center/cover no-repeat;
+    }
   }
   .hero-visual::before {
     content: ''; position: absolute; inset: 16px; border: 1px solid var(--crimson); opacity: 0.55; pointer-events: none;
@@ -439,6 +450,37 @@
   }
   .reel-card:hover { transform: translateY(-4px); border-color: var(--crimson); }
   .reel-card iframe { width: 100%; height: 100%; border: none; }
+
+  /* Facade "toca para cargar": evita descargar el SDK de Instagram hasta que el usuario quiere ver el reel */
+  .reel-facade {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px;
+    background:
+      radial-gradient(circle at 50% 35%, rgba(147,23,44,0.22), transparent 60%),
+      var(--bg-panel-2);
+    border: none; cursor: pointer; color: var(--bone);
+    position: relative; padding: 0;
+  }
+  .reel-facade-ig {
+    width: 34px; height: 34px; color: var(--bone-dim); opacity: 0.7;
+  }
+  .reel-facade-play {
+    width: 60px; height: 60px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(192,34,65,0.16); border: 1px solid var(--crimson-bright);
+    transition: background var(--dur-fast) ease, transform var(--dur-fast) ease;
+  }
+  .reel-facade-play svg { width: 22px; height: 22px; color: var(--crimson-bright); margin-left: 3px; }
+  .reel-facade:hover .reel-facade-play,
+  .reel-facade:focus-visible .reel-facade-play { background: var(--crimson-bright); transform: scale(1.08); }
+  .reel-facade:hover .reel-facade-play svg,
+  .reel-facade:focus-visible .reel-facade-play svg { color: var(--bg); }
+  .reel-facade-tag {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--bone-dim);
+  }
+  .reel-card.is-loaded { padding: 0; }
 
   .coach-cta-box {
     border: 1px solid var(--line);
@@ -1108,6 +1150,14 @@
     <symbol id="icon-whatsapp-filled" viewBox="0 0 24 24">
       <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.124-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
     </symbol>
+    <symbol id="icon-instagram" viewBox="0 0 24 24">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+    </symbol>
+    <symbol id="icon-play" viewBox="0 0 24 24">
+      <polygon points="6 3 20 12 6 21 6 3"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -1219,7 +1269,7 @@
 <header class="nav">
   <div class="container">
     <a href="#top" class="brand">
-      <img src="logo.webp" alt="Áleran Logo" width="1500" height="1014">
+      <img src="logo.webp" alt="Áleran Logo" width="300" height="203">
     </a>
     <nav class="links" id="navLinks">
       <a href="#lanzamiento">Nuevo Single</a>
@@ -1289,7 +1339,7 @@
     <!-- Misma imagen panorámica en todas las pantallas: en escritorio a todo lo ancho,
          en móvil encogida y enmarcada (ver regla @media 640px) para que sea un detalle
          discreto y no un bloque protagonista. -->
-    <img class="release-banner-img" src="banner-lanzamiento.webp" alt="Áleran — Del Abismo a la Eternidad. Lanzamiento oficial, single debut, 15 de septiembre de 2026. Disponible en Spotify, Apple Music, YouTube Music, Amazon Music y más plataformas." width="2200" height="800" loading="lazy">
+    <img class="release-banner-img" src="banner-lanzamiento.webp" srcset="banner-lanzamiento-movil.webp 800w, banner-lanzamiento.webp 2200w" sizes="(max-width: 768px) 100vw, 1180px" alt="Áleran — Del Abismo a la Eternidad. Lanzamiento oficial, single debut, 15 de septiembre de 2026. Disponible en Spotify, Apple Music, YouTube Music, Amazon Music y más plataformas." width="2200" height="800" loading="lazy">
   </div>
   <div class="container release-actions">
     <div class="btn-row">
@@ -1340,13 +1390,28 @@
     <!-- REELS INSTAGRAM -->
     <div class="reels-grid">
       <div class="reel-card" data-reveal>
-        <iframe src="https://www.instagram.com/p/DUEPQmzDPXa/embed" title="Técnica de Respiración" allowtransparency="true" allow="encrypted-media" loading="lazy"></iframe>
+        <button type="button" class="reel-facade" data-embed-src="https://www.instagram.com/p/DUEPQmzDPXa/embed" data-embed-title="Técnica de Respiración" aria-label="Cargar y reproducir el reel de Instagram: Técnica de Respiración">
+          <svg class="reel-facade-ig" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-instagram"/></svg>
+          <span class="reel-facade-play"><svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-play"/></svg></span>
+          <span class="reel-facade-tag">Técnica de Respiración</span>
+        </button>
+        <noscript><iframe src="https://www.instagram.com/p/DUEPQmzDPXa/embed" title="Técnica de Respiración" allowtransparency="true" allow="encrypted-media" loading="lazy"></iframe></noscript>
       </div>
       <div class="reel-card" data-reveal style="--reveal-delay:.1s">
-        <iframe src="https://www.instagram.com/p/DbELFOhMNml/embed" title="Rango Vocal" allowtransparency="true" allow="encrypted-media" loading="lazy"></iframe>
+        <button type="button" class="reel-facade" data-embed-src="https://www.instagram.com/p/DbELFOhMNml/embed" data-embed-title="Rango Vocal" aria-label="Cargar y reproducir el reel de Instagram: Rango Vocal">
+          <svg class="reel-facade-ig" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-instagram"/></svg>
+          <span class="reel-facade-play"><svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-play"/></svg></span>
+          <span class="reel-facade-tag">Rango Vocal</span>
+        </button>
+        <noscript><iframe src="https://www.instagram.com/p/DbELFOhMNml/embed" title="Rango Vocal" allowtransparency="true" allow="encrypted-media" loading="lazy"></iframe></noscript>
       </div>
       <div class="reel-card" data-reveal style="--reveal-delay:.2s">
-        <iframe src="https://www.instagram.com/p/DM8f0G1M2Nl/embed" title="Interpretación" allowtransparency="true" allow="encrypted-media" loading="lazy"></iframe>
+        <button type="button" class="reel-facade" data-embed-src="https://www.instagram.com/p/DM8f0G1M2Nl/embed" data-embed-title="Interpretación" aria-label="Cargar y reproducir el reel de Instagram: Interpretación">
+          <svg class="reel-facade-ig" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-instagram"/></svg>
+          <span class="reel-facade-play"><svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-play"/></svg></span>
+          <span class="reel-facade-tag">Interpretación</span>
+        </button>
+        <noscript><iframe src="https://www.instagram.com/p/DM8f0G1M2Nl/embed" title="Interpretación" allowtransparency="true" allow="encrypted-media" loading="lazy"></iframe></noscript>
       </div>
     </div>
 
@@ -2066,8 +2131,7 @@
   // (evento 'reels:active'). Nota: se descartó recargar/detener los otros reels al hacer
   // clic, porque interrumpía su carga y a veces los dejaba en blanco.
   safe(function initReelsAudioExclusivity(){
-    const frames = Array.from(document.querySelectorAll('.reel-card iframe'));
-    if (!frames.length) return;
+    if (!document.querySelector('.reels-grid')) return;
 
     // Los reels son iframes de OTRO origen (Instagram): un clic dentro de ellos queda
     // "atrapado" ahí y nunca llega como evento normal (pointerdown/click) a esta página,
@@ -2075,14 +2139,42 @@
     // documentos es el cambio de foco: al pulsar dentro del iframe, la ventana principal
     // pierde el foco (blur) y ese iframe pasa a ser document.activeElement. Con eso
     // detectamos de forma fiable que el usuario ha interactuado con un reel.
+    // Se consulta en vivo (no un array capturado al cargar) porque los iframes de los
+    // reels ahora se insertan bajo demanda al tocar el "facade" (ver initReelFacades).
     window.addEventListener('blur', function(){
       setTimeout(function(){
-        if (document.activeElement && frames.includes(document.activeElement)) {
+        const frames = document.querySelectorAll('.reel-card iframe');
+        if (document.activeElement && Array.from(frames).includes(document.activeElement)) {
           document.dispatchEvent(new Event('reels:active'));
         }
       }, 0);
     });
   }, 'initReelsAudioExclusivity');
+
+  // "Toca para cargar": los reels de Instagram empiezan como una miniatura ligera
+  // (sin descargar el SDK de Instagram) y solo se convierten en el iframe real de
+  // Instagram cuando el usuario pulsa el botón de play. Ahorra bastante peso en móvil,
+  // ya que en pantallas pequeñas solo se ve un reel a la vez.
+  safe(function initReelFacades(){
+    const facades = document.querySelectorAll('.reel-facade');
+    if (!facades.length) return;
+    facades.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const card = btn.closest('.reel-card');
+        const src = btn.getAttribute('data-embed-src');
+        const title = btn.getAttribute('data-embed-title') || 'Reel de Instagram';
+        if (!card || !src) return;
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.title = title;
+        iframe.setAttribute('allowtransparency', 'true');
+        iframe.setAttribute('allow', 'encrypted-media');
+        card.classList.add('is-loaded');
+        card.replaceChild(iframe, btn);
+        document.dispatchEvent(new Event('reels:active'));
+      });
+    });
+  }, 'initReelFacades');
 
   // Menú hamburguesa móvil
   (function(){
