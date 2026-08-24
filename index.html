@@ -772,6 +772,15 @@
     .hero .container { grid-template-columns: 1fr; gap: 16px; }
     .hero-visual { width: 100%; max-width: 420px; margin: 10px auto 0 auto; }
 
+    /* El badge de valoración se hace más pequeño y se pega a la esquina para no tapar la cara en pantallas estrechas */
+    .hero-badge {
+      top: 8px !important; right: 4px !important;
+      padding: 6px 10px !important; gap: 6px !important;
+    }
+    .hero-badge strong { font-size: 14px !important; }
+    .hero-badge .badge-stars { font-size: 9px !important; letter-spacing: 0.5px !important; }
+    .hero-badge .badge-label { font-size: 7px !important; }
+
     /* TÍTULO PRINCIPAL DESTACADO EN MÓVIL */
     .section-head h2 {
       font-size: 34px !important;
