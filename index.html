@@ -2187,22 +2187,58 @@
   safe(function initReelFacades(){
     const facades = document.querySelectorAll('.reel-facade');
     if (!facades.length) return;
-    facades.forEach(function(btn){
+
+    function mountReel(card, btn){
+      const src = btn.getAttribute('data-embed-src');
+      const title = btn.getAttribute('data-embed-title') || 'Reel de Instagram';
+      if (!card || !src) return;
+      const iframe = document.createElement('iframe');
+      iframe.src = src;
+      iframe.title = title;
+      iframe.setAttribute('allowtransparency', 'true');
+      iframe.setAttribute('allow', 'encrypted-media');
+      card.classList.add('is-loaded');
+      card.replaceChild(iframe, btn);
+      document.dispatchEvent(new Event('reels:active'));
+    }
+
+    function attachFacadeClick(btn){
       btn.addEventListener('click', function(){
-        const card = btn.closest('.reel-card');
-        const src = btn.getAttribute('data-embed-src');
-        const title = btn.getAttribute('data-embed-title') || 'Reel de Instagram';
-        if (!card || !src) return;
-        const iframe = document.createElement('iframe');
-        iframe.src = src;
-        iframe.title = title;
-        iframe.setAttribute('allowtransparency', 'true');
-        iframe.setAttribute('allow', 'encrypted-media');
-        card.classList.add('is-loaded');
-        card.replaceChild(iframe, btn);
-        document.dispatchEvent(new Event('reels:active'));
+        mountReel(btn.closest('.reel-card'), btn);
       });
-    });
+    }
+
+    facades.forEach(attachFacadeClick);
+
+    // Al sacar bastante el reel cargado de la pantalla (scroll), vuelve a su miniatura
+    // en vez de seguir reproduciéndose de fondo. Esto ahorra batería/datos y evita que
+    // el sistema operativo (p. ej. el "Video Toolbox" de MIUI en Xiaomi) muestre sus
+    // propios controles flotantes sobre un vídeo que ya no se está viendo.
+    if ('IntersectionObserver' in window) {
+      const facadeSnapshots = new WeakMap();
+      document.querySelectorAll('.reel-card').forEach(function(card){
+        const facade = card.querySelector('.reel-facade');
+        if (facade) facadeSnapshots.set(card, facade);
+      });
+
+      const unloadObserver = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          const card = entry.target;
+          if (entry.isIntersecting || !card.classList.contains('is-loaded')) return;
+          const snapshot = facadeSnapshots.get(card);
+          const iframe = card.querySelector('iframe');
+          if (!snapshot || !iframe) return;
+          const freshFacade = snapshot.cloneNode(true);
+          attachFacadeClick(freshFacade);
+          card.classList.remove('is-loaded');
+          card.replaceChild(freshFacade, iframe);
+        });
+      }, { threshold: 0, rootMargin: '-150px 0px -150px 0px' });
+
+      document.querySelectorAll('.reel-card').forEach(function(card){
+        unloadObserver.observe(card);
+      });
+    }
   }, 'initReelFacades');
 
   // Menú hamburguesa móvil
