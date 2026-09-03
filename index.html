@@ -45,7 +45,7 @@
   "telephone": "+34632926726",
   "sameAs": [
     "https://www.instagram.com/aleran_vocals/",
-    "https://open.spotify.com/intl-es/artist/6upVPNl4Of6VQXRREV5PCT"
+    "https://open.spotify.com/"
   ],
   "makesOffer": [
     {
@@ -99,7 +99,7 @@
     --whatsapp:       #25D366;
     --bone:         #ede7e1;
     --bone-dim:       #b2a9a2;
-    --muted:          #8a8078;
+    --muted:          #7c716c;
     --line:           #282020;
     --shadow:         rgba(0,0,0,0.6);
 
@@ -717,28 +717,9 @@
   /* ==========================================================================
      13. FOOTER
      ========================================================================== */
-  footer { padding: 36px 0; border-top: 1px solid var(--line); background: var(--bg); position: relative; }
+  footer { padding: 36px 0; border-top: 1px solid var(--line); background: var(--bg); }
   footer .container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
   footer p { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--muted); }
-
-  /* CONTADOR DE VISITAS DISCRETO (símbolo % casi invisible, abajo del todo) */
-  .visit-counter-trigger {
-    background: none; border: none; cursor: pointer;
-    font-family: var(--font-mono); font-size: 10px; color: var(--muted);
-    opacity: 0.22; padding: 4px 6px; line-height: 1;
-    transition: opacity var(--dur-fast) var(--ease-out-soft);
-  }
-  .visit-counter-trigger:hover,
-  .visit-counter-trigger:focus-visible { opacity: 0.75; }
-  .visit-counter-panel {
-    position: absolute; bottom: 100%; right: 32px; margin-bottom: 10px;
-    background: var(--bg-panel); border: 1px solid var(--line);
-    border-radius: 6px; padding: 8px 12px;
-    font-family: var(--font-mono); font-size: 11px; color: var(--bone-dim);
-    white-space: nowrap; box-shadow: 0 8px 24px var(--shadow);
-  }
-  .visit-counter-panel[hidden] { display: none; }
-  @media (max-width: 480px) { .visit-counter-panel { right: 16px; } }
 
   /* EVITA QUE LA PÁGINA SE DESBORDE LATERALMENTE */
   html, body {
@@ -1651,11 +1632,11 @@
       <p class="eyebrow" style="color: var(--crimson-bright); margin-top: 0; margin-bottom: 4px;">Áleran — Proyecto Artístico</p>
       <h2 style="margin-bottom: 6px;">Música original.</h2>
       <p style="margin-bottom: 10px;">Atmósferas oscuras, letras personales e <strong>interpretación cruda</strong>. Mi faceta artística es el laboratorio donde aplico todo el criterio de producción que luego traslado al estudio.</p>
-      <a href="https://open.spotify.com/intl-es/artist/6upVPNl4Of6VQXRREV5PCT" target="_blank" rel="noopener" class="btn filled" style="margin-top:4px;">Escuchar en Spotify</a>
+      <a href="https://open.spotify.com/" target="_blank" rel="noopener" class="btn filled" style="margin-top:4px;">Escuchar en Spotify</a>
     </div>
     <div data-reveal="right">
       <div class="spotify-frame">
-        <iframe src="https://open.spotify.com/embed/artist/6upVPNl4Of6VQXRREV5PCT?utm_source=generator&theme=0" title="Reproductor de Spotify de Áleran" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+        <iframe src="https://open.spotify.com/embed/artist/PLACEHOLDER_ID?utm_source=generator&theme=0" title="Reproductor de Spotify de Áleran" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
       </div>
     </div>
   </div>
@@ -1821,13 +1802,11 @@
   <div class="container">
     <p>© 2026 Áleran. Todos los derechos reservados.</p>
     <p>Vocal Coach · Producción 360° · Proyecto Artístico</p>
-    <button type="button" id="visitCounterBtn" class="visit-counter-trigger" aria-label="Ver estadísticas del sitio" aria-expanded="false">%</button>
-    <div id="visitCounterPanel" class="visit-counter-panel" role="status" hidden></div>
   </div>
 </footer>
 
 <!-- SDK EMAILJS -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 
 <!-- SCRIPTS UNIFICADOS -->
 <script>
@@ -2294,67 +2273,6 @@
           content.style.maxHeight = content.scrollHeight + "px";
         }
       });
-    });
-  })();
-
-  // Contador de visitas discreto (botón "%" en el footer).
-  // Usa una API pública gratuita (abacus.jasoncameron.dev) que guarda el número
-  // en su servidor: no hace falta backend propio. Cuenta 1 visita por sesión de
-  // navegador (no en cada recarga de página) y muestra el total al pulsar el botón.
-  (function(){
-    const NAMESPACE = 'aleranvocals-es';
-    const KEY = 'visitas';
-    const btn = document.getElementById('visitCounterBtn');
-    const panel = document.getElementById('visitCounterPanel');
-    if (!btn || !panel) return;
-
-    let cachedValue = null;
-
-    function registerVisit(){
-      if (sessionStorage.getItem('visitCounted')) return;
-      fetch(`https://abacus.jasoncameron.dev/hit/${NAMESPACE}/${KEY}`)
-        .then(r => r.json())
-        .then(data => {
-          cachedValue = data.value;
-          sessionStorage.setItem('visitCounted', '1');
-        })
-        .catch(() => {});
-    }
-
-    function showCount(){
-      if (cachedValue !== null) {
-        panel.textContent = cachedValue + ' visitas';
-        return;
-      }
-      panel.textContent = 'Cargando…';
-      fetch(`https://abacus.jasoncameron.dev/get/${NAMESPACE}/${KEY}`)
-        .then(r => r.json())
-        .then(data => {
-          cachedValue = data.value;
-          panel.textContent = cachedValue + ' visitas';
-        })
-        .catch(() => { panel.textContent = 'No disponible'; });
-    }
-
-    registerVisit();
-
-    btn.addEventListener('click', function(){
-      const isHidden = panel.hasAttribute('hidden');
-      if (isHidden) {
-        panel.removeAttribute('hidden');
-        btn.setAttribute('aria-expanded', 'true');
-        showCount();
-      } else {
-        panel.setAttribute('hidden', '');
-        btn.setAttribute('aria-expanded', 'false');
-      }
-    });
-
-    document.addEventListener('click', function(e){
-      if (!panel.contains(e.target) && e.target !== btn && !panel.hasAttribute('hidden')) {
-        panel.setAttribute('hidden', '');
-        btn.setAttribute('aria-expanded', 'false');
-      }
     });
   })();
 
