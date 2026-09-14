@@ -314,10 +314,18 @@
     background: linear-gradient(to bottom, rgba(10,8,8,0.95), rgba(10,8,8,0));
     padding: 10px 0 !important;
   }
-  header.nav .container { display: flex; align-items: center; justify-content: space-between; }
-  
+  /* gap: garantiza un hueco mínimo entre el logo y el menú -- con
+     "justify-content: space-between" y poco contenido, ese hueco podía
+     llegar a ser casi cero en ventanas de anchura intermedia. */
+  header.nav .container { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+
+  .brand {
+    display: block;
+    flex-shrink: 0;
+  }
+
   .brand img {
-    height: 75px !important; 
+    height: 75px !important;
     width: auto;
     display: block;
     object-fit: contain;
@@ -1350,13 +1358,13 @@
     <nav class="links" id="navLinks">
       <a href="#lanzamiento">Nuevo Single</a>
       <a href="#vocal-coach">Vocal Coach</a>
-      <a href="/herramientas/guia.html">Practica</a>
       <a href="#planes">Planes</a>
       <a href="#artista">Áleran Artista</a>
       <a href="#produccion">Producción 360°</a>
       <a href="#faq">FAQ</a>
-      <a href="https://blog.aleranvocals.es" target="_blank" rel="noopener">Blog</a>
       <a href="#contacto">Contacto</a>
+      <a href="/herramientas/guia.html">Práctica Vocal</a>
+      <a href="https://blog.aleranvocals.es" target="_blank" rel="noopener">Blog</a>
       <a href="https://wa.me/34632926726?text=Hola%20Áleran,%20quiero%20información%20sobre%20las%20clases%20de%20canto" target="_blank" rel="noopener" class="btn whatsapp small">
         <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; min-width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><use href="#icon-whatsapp-outline"/></svg>
         WhatsApp
