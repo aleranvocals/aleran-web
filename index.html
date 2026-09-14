@@ -62,7 +62,13 @@
       "itemOffered": {
         "@type": "Service",
         "name": "Clases de canto y técnica vocal",
-        "areaServed": "ES"
+        "areaServed": "ES",
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "5.0",
+          "bestRating": "5",
+          "reviewCount": "6"
+        }
       }
     },
     {
@@ -73,13 +79,7 @@
         "areaServed": "ES"
       }
     }
-  ],
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "5.0",
-    "bestRating": "5",
-    "reviewCount": "6"
-  }
+  ]
 }
 </script>
 
@@ -1897,6 +1897,13 @@
 
     <!-- FORMULARIO DE CONTACTO FUNCIONAL CON EMAILJS -->
     <form class="contact-form" id="contactForm" data-reveal="right">
+      <!-- Honeypot anti-spam: invisible para personas, pero los bots que rellenan
+           formularios a ciegas casi siempre lo completan. Si llega con contenido,
+           el envío se descarta en silencio (ver script de abajo). -->
+      <div aria-hidden="true" style="position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;">
+        <label for="f-empresa">No rellenar este campo</label>
+        <input id="f-empresa" name="empresa" type="text" tabindex="-1" autocomplete="off">
+      </div>
       <div class="form-row">
         <div class="field">
           <label for="f-name">Nombre</label>
@@ -1951,7 +1958,7 @@
 </footer>
 
 <!-- SDK EMAILJS -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js" integrity="sha384-VDbnsk/qjpIVHPQMkJiROI+vW/7cw0k8TFYVLUabm7EWoLEDwcXh09XQ6gQ86Y0B" crossorigin="anonymous"></script>
 
 <!-- SCRIPTS UNIFICADOS -->
 <script>
@@ -2492,7 +2499,17 @@
     if (form) {
       form.addEventListener('submit', function(e){
         e.preventDefault();
-        
+
+        // Honeypot: si un bot rellenó el campo invisible, fingimos éxito sin
+        // mandar nada de verdad -- así no aprende a evitarlo la próxima vez.
+        const honeypot = document.getElementById('f-empresa');
+        if (honeypot && honeypot.value) {
+          if (note) note.textContent = '';
+          alert('¡Mensaje enviado con éxito! Te responderé lo antes posible.');
+          form.reset();
+          return;
+        }
+
         if (btnSubmit) btnSubmit.disabled = true;
         if (note) note.textContent = 'Enviando mensaje...';
 
