@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/herramientas/:path*", "destination": "https://aleran-piano.vercel.app/:path*" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
