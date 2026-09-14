@@ -104,7 +104,8 @@
     --wine:         #5a121f;
     --wine-deep:      #38090f;
     --crimson:        #93172c; /* Rojo granate principal */
-    --crimson-bright:#c02241; /* Rojo de acento/hover */
+    --crimson-bright:#c02241; /* Rojo de acento/hover — NO usar en texto pequeño, ~3.4:1 de contraste sobre fondo oscuro (bajo el mínimo AA de 4.5:1) */
+    --crimson-text:  #e2597a; /* Misma familia, aclarado para texto de 11-12px (eyebrows, etiquetas) */
     --whatsapp:       #25D366;
     --bone:         #ede7e1;
     --bone-dim:       #b2a9a2;
@@ -160,7 +161,7 @@
     font-size: 11px;
     letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: var(--crimson-bright);
+    color: var(--crimson-text);
     display: flex; align-items: center; gap: 12px;
     margin-bottom: 20px;
   }
@@ -733,6 +734,17 @@
   footer .container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
   footer p { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--muted); }
 
+  .footer-social { display: flex; gap: 14px; order: -1; }
+  .footer-social a {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%;
+    color: var(--muted); border: 1px solid var(--line);
+    transition: color var(--dur-fast) var(--ease-out-soft), border-color var(--dur-fast) var(--ease-out-soft);
+  }
+  .footer-social a:hover, .footer-social a:focus-visible { color: var(--crimson-bright); border-color: var(--crimson-bright); }
+  .footer-social svg { width: 17px; height: 17px; }
+  @media (max-width: 520px) { footer .container { justify-content: center; text-align: center; } }
+
   /* CONTADOR DE VISITAS DISCRETO (símbolo % casi invisible, abajo del todo) */
   .visit-counter-trigger {
     background: none; border: none; cursor: pointer;
@@ -1212,6 +1224,16 @@
     <symbol id="icon-play" viewBox="0 0 24 24">
       <polygon points="6 3 20 12 6 21 6 3"/>
     </symbol>
+    <symbol id="icon-tiktok" viewBox="0 0 24 24">
+      <path d="M16.5 3c.3 2.1 1.8 3.7 4 4v3c-1.5 0-2.8-.4-4-1.2v6.7A5.5 5.5 0 1 1 11 10v3.1a2.5 2.5 0 1 0 2 2.4V3h3.5z"/>
+    </symbol>
+    <symbol id="icon-youtube" viewBox="0 0 24 24">
+      <path d="M22 12.5c0-2.4-.2-3.9-.5-4.8a2.9 2.9 0 0 0-2-2C17.9 5.3 12 5.3 12 5.3s-5.9 0-7.5.4a2.9 2.9 0 0 0-2 2c-.3.9-.5 2.4-.5 4.8s.2 3.9.5 4.8a2.9 2.9 0 0 0 2 2c1.6.4 7.5.4 7.5.4s5.9 0 7.5-.4a2.9 2.9 0 0 0 2-2c.3-.9.5-2.4.5-4.8z"/>
+      <polygon points="10 9.3 10 15.7 15.5 12.5 10 9.3" fill="var(--paper,#0a0808)" stroke="none"/>
+    </symbol>
+    <symbol id="icon-facebook" viewBox="0 0 24 24">
+      <path d="M14 9h3V6h-3a4 4 0 0 0-4 4v2H7v3h3v6h3v-6h3l1-3h-4v-2a1 1 0 0 1 1-1z"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -1410,7 +1432,7 @@
   <div class="container">
     <div class="coach-intro">
       <div data-reveal="left">
-        <p class="eyebrow" style="color: var(--crimson-bright); margin-top: 0; margin-bottom: 4px;">Áleran Vocal Coach</p>
+        <p class="eyebrow" style="color: var(--crimson-text); margin-top: 0; margin-bottom: 4px;">Áleran Vocal Coach</p>
         <h2 style="margin-bottom: 6px;">Técnica Vocal Pro. <em>Resultados rápidos con mis atajos.</em></h2>
         
         <p style="text-align: justify; margin-bottom: 8px;">
@@ -1633,7 +1655,7 @@
 <section class="testimonials" id="testimonios">
   <div class="container">
     <div class="section-head" data-reveal="fade" style="margin-bottom: 16px;">
-      <p class="eyebrow" style="color: var(--crimson-bright); margin-top: 0; margin-bottom: 4px;">Reseñas Verificadas</p>
+      <p class="eyebrow" style="color: var(--crimson-text); margin-top: 0; margin-bottom: 4px;">Reseñas Verificadas</p>
       <h2 style="margin-bottom: 6px;">Lo que dicen quienes ya entrenan su voz.</h2>
       <p class="lede" style="margin-bottom: 0;">Opiniones reales extraídas de mi perfil en Tusclasesparticulares.com.</p>
     </div>
@@ -1725,7 +1747,7 @@
 <section class="artist" id="artista">
   <div class="container">
     <div class="artist-copy" data-reveal="left">
-      <p class="eyebrow" style="color: var(--crimson-bright); margin-top: 0; margin-bottom: 4px;">Áleran — Proyecto Artístico</p>
+      <p class="eyebrow" style="color: var(--crimson-text); margin-top: 0; margin-bottom: 4px;">Áleran — Proyecto Artístico</p>
       <h2 style="margin-bottom: 6px;">Música original.</h2>
       <p style="margin-bottom: 10px;">Atmósferas oscuras, letras personales e <strong>interpretación cruda</strong>. Mi faceta artística es el laboratorio donde aplico todo el criterio de producción que luego traslado al estudio.</p>
       <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
@@ -1745,7 +1767,7 @@
 <section class="production" id="produccion">
   <div class="container">
     <div class="section-head" data-reveal="fade" style="margin-bottom: 16px;">
-      <p class="eyebrow" style="color: var(--crimson-bright); margin-top: 0; margin-bottom: 4px;">Producción Musical 360°</p>
+      <p class="eyebrow" style="color: var(--crimson-text); margin-top: 0; margin-bottom: 4px;">Producción Musical 360°</p>
       <h2 style="margin-bottom: 6px;">Tu canción, de la idea al lanzamiento.</h2>
       <p class="lede" style="margin-bottom: 0;">Servicio de estudio integral: te acompaño en todo el proceso creativo y técnico.</p>
     </div>
@@ -1799,7 +1821,7 @@
     <div class="lion-banner" data-reveal style="margin-top: 16px; padding: 16px;">
       <div class="lion-logo" role="img" aria-label="Logo de Epic Lion Records"></div>
       <div class="lion-copy">
-        <p class="eyebrow" style="color: var(--crimson-bright); margin-bottom: 2px;">Sello & Estudio</p>
+        <p class="eyebrow" style="color: var(--crimson-text); margin-bottom: 2px;">Sello & Estudio</p>
         <h3 style="margin-top: 0; margin-bottom: 4px;">Epic Lion Records</h3>
         <p style="margin: 0;">Infraestructura para proyectos musicales de gran formato, bandas y producciones discográficas integrales.</p>
       </div>
@@ -1813,7 +1835,7 @@
 <section class="faq" id="faq">
   <div class="container">
     <div class="section-head" data-reveal="fade" style="margin-top: 0; margin-bottom: 16px;">
-      <p class="eyebrow" style="color: var(--crimson-bright); margin-top: 0; margin-bottom: 4px;">Dudas Frecuentes</p>
+      <p class="eyebrow" style="color: var(--crimson-text); margin-top: 0; margin-bottom: 4px;">Dudas Frecuentes</p>
       <h2 style="margin-bottom: 0;">Preguntas Habituales.</h2>
     </div>
 
@@ -1850,7 +1872,7 @@
 <section class="contact" id="contacto">
   <div class="container">
     <div class="contact-side" data-reveal="left">
-      <p class="eyebrow" style="color: var(--crimson-bright); margin-bottom: 4px;">Contacto Secundario</p>
+      <p class="eyebrow" style="color: var(--crimson-text); margin-bottom: 4px;">Contacto Secundario</p>
       <h2 style="margin-bottom: 6px;">Escríbeme un mensaje.</h2>
       <p style="margin-bottom: 12px;">Si prefieres el correo electrónico o quieres enviar una consulta detallada sobre un proyecto de producción, utiliza este formulario.</p>
 
@@ -1899,6 +1921,15 @@
 <!-- FOOTER -->
 <footer>
   <div class="container">
+    <nav class="footer-social" aria-label="Redes sociales">
+      <a href="https://www.instagram.com/aleran_vocals/" target="_blank" rel="noopener" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-instagram"/></svg>
+      </a>
+      <a href="https://www.facebook.com/profile.php?id=1529275340721984" target="_blank" rel="noopener" aria-label="Facebook">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-facebook"/></svg>
+      </a>
+      <!-- TODO: confirmar y pegar aquí los links reales de TikTok y YouTube -->
+    </nav>
     <p>© 2026 Áleran. Todos los derechos reservados.</p>
     <p>Vocal Coach · Producción 360° · Proyecto Artístico</p>
     <button type="button" id="visitCounterBtn" class="visit-counter-trigger" aria-label="Ver estadísticas del sitio" aria-expanded="false">%</button>
@@ -2452,16 +2483,30 @@
         if (btnSubmit) btnSubmit.disabled = true;
         if (note) note.textContent = 'Enviando mensaje...';
 
-        emailjs.sendForm('service_g60xrm9', 'template_sr65u6o', this)
-          .then(function() {
-            if (note) note.textContent = '';
-            alert('¡Mensaje enviado con éxito! Te responderé lo antes posible.');
-            form.reset();
-            if (btnSubmit) btnSubmit.disabled = false;
-          }, function(error) {
-            if (note) note.textContent = 'Error al enviar. Por favor, escríbeme directamente por WhatsApp.';
-            if (btnSubmit) btnSubmit.disabled = false;
-          });
+        // Si un bloqueador de anuncios o una red lenta impidió que cargara el SDK
+        // de EmailJS, "emailjs" ni siquiera existe — sin este chequeo, el botón se
+        // quedaba deshabilitado para siempre sin ningún aviso.
+        if (typeof emailjs === 'undefined') {
+          if (note) note.textContent = 'No se pudo cargar el formulario. Por favor, escríbeme directamente por WhatsApp.';
+          if (btnSubmit) btnSubmit.disabled = false;
+          return;
+        }
+
+        try {
+          emailjs.sendForm('service_g60xrm9', 'template_sr65u6o', this)
+            .then(function() {
+              if (note) note.textContent = '';
+              alert('¡Mensaje enviado con éxito! Te responderé lo antes posible.');
+              form.reset();
+              if (btnSubmit) btnSubmit.disabled = false;
+            }, function(error) {
+              if (note) note.textContent = 'Error al enviar. Por favor, escríbeme directamente por WhatsApp.';
+              if (btnSubmit) btnSubmit.disabled = false;
+            });
+        } catch (err) {
+          if (note) note.textContent = 'Error al enviar. Por favor, escríbeme directamente por WhatsApp.';
+          if (btnSubmit) btnSubmit.disabled = false;
+        }
       });
     }
   })();
