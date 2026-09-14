@@ -1,6 +1,6 @@
 {
   "redirects": [
-    { "source": "/herramientas", "destination": "/herramientas/", "permanent": false }
+    { "source": "/herramientas", "destination": "/herramientas/index.html", "permanent": false }
   ],
   "rewrites": [
     { "source": "/herramientas/:path*", "destination": "https://aleran-piano.vercel.app/:path*" }
