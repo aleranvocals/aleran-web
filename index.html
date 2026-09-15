@@ -331,10 +331,10 @@
     object-fit: contain;
   }
 
-  nav.links { display: flex; align-items: center; gap: 34px; }
+  nav.links { display: flex; align-items: center; gap: 26px; }
   nav.links a {
     font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--bone-dim); position: relative; padding-bottom: 4px;
+    color: var(--bone-dim); position: relative; padding-bottom: 4px; white-space: nowrap;
   }
   nav.links a::after {
     content: ''; position: absolute; left: 0; right: 100%; bottom: 0; height: 1px;
@@ -783,6 +783,22 @@
   /* ==========================================================================
      14. RESPONSIVE (MÓVIL)
      ========================================================================== */
+  /* El menú se pasa a hamburguesa antes que el resto del layout a móvil --
+     con 9 enlaces + el botón de WhatsApp, un escritorio normal (no solo
+     pantallas anchas) ya no tiene sitio para mostrarlos todos en una fila
+     sin que el texto de cada uno se parta en varias líneas. */
+  @media (max-width: 1300px) {
+    nav.links {
+      position: fixed; top: 0; right: 0; bottom: 0; width: min(78vw, 320px);
+      background: #0a0808; border-left: 1px solid var(--line);
+      flex-direction: column; justify-content: center; align-items: flex-start; gap: 28px;
+      padding: 40px; transform: translateX(100%); transition: transform .35s ease;
+    }
+    nav.links.open { transform: translateX(0); }
+    .nav-toggle { display: flex; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; z-index: 200; padding: 6px; }
+    .nav-toggle span { width: 22px; height: 1px; background: var(--bone); }
+  }
+
   @media (max-width: 980px){
     header.nav { padding: 12px 0 !important; background: #0a0808; }
     .hero { padding-top: 140px !important; }
@@ -809,16 +825,6 @@
       letter-spacing: 0.5px !important;
       white-space: nowrap !important;
     }
-
-    nav.links {
-      position: fixed; top: 0; right: 0; bottom: 0; width: min(78vw, 320px);
-      background: #0a0808; border-left: 1px solid var(--line);
-      flex-direction: column; justify-content: center; align-items: flex-start; gap: 28px;
-      padding: 40px; transform: translateX(100%); transition: transform .35s ease;
-    }
-    nav.links.open { transform: translateX(0); }
-    .nav-toggle { display: flex; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; z-index: 200; padding: 6px; }
-    .nav-toggle span { width: 22px; height: 1px; background: var(--bone); }
 
     .hero .container { grid-template-columns: 1fr; gap: 16px; }
     .hero-visual { width: 100%; max-width: 420px; margin: 10px auto 0 auto; }
@@ -1364,7 +1370,7 @@
       <a href="#faq">FAQ</a>
       <a href="#contacto">Contacto</a>
       <a href="/herramientas/guia.html">Práctica Vocal</a>
-      <a href="/quiz">¿Qué Plan Es Para Ti?</a>
+      <a href="/quiz">¿Qué Plan?</a>
       <a href="https://blog.aleranvocals.es" target="_blank" rel="noopener">Blog</a>
       <a href="https://wa.me/34632926726?text=Hola%20Áleran,%20quiero%20información%20sobre%20las%20clases%20de%20canto" target="_blank" rel="noopener" class="btn whatsapp small">
         <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; min-width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><use href="#icon-whatsapp-outline"/></svg>
