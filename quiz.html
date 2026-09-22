@@ -209,7 +209,7 @@
      ========================================================================== */
   .quiz-pregunta { max-width: 720px; margin: 0 auto 48px; }
   .quiz-pregunta .quiz-numero { font-family: var(--font-mono); font-size: 11px; color: var(--crimson-text); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 10px; }
-  .quiz-pregunta h3 { font-size: clamp(20px, 2.6vw, 26px); margin-bottom: 22px; }
+  .quiz-pregunta h2 { font-size: clamp(20px, 2.6vw, 26px); margin-bottom: 22px; }
   .quiz-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 640px) { .quiz-opciones { grid-template-columns: 1fr; } }
 
@@ -231,7 +231,7 @@
   .quiz-opcion input:focus-visible + label { outline: 1px solid var(--crimson-bright); outline-offset: 3px; }
 
   .quiz-envio { text-align: center; margin-top: 8px; }
-  .quiz-error { font-family: var(--font-mono); font-size: 12px; color: var(--crimson-bright); margin-top: 14px; min-height: 16px; text-align: center; }
+  .quiz-error { font-family: var(--font-mono); font-size: 12px; color: var(--crimson-text); margin-top: 14px; min-height: 16px; text-align: center; }
 
   /* ==========================================================================
      7. RESULTADO (reutiliza el lenguaje visual de las tarjetas de plan)
@@ -247,7 +247,7 @@
     max-width: 460px; margin: 0 auto;
   }
   .plan-card.featured { border-color: var(--crimson); background: var(--bg-panel-2); }
-  .plan-badge { font-family: var(--font-mono); font-size: 10px; color: var(--crimson-bright); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+  .plan-badge { font-family: var(--font-mono); font-size: 10px; color: var(--crimson-text); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
   .plan-card h3 { font-size: 30px; margin-bottom: 6px; }
   .plan-card .plan-por-que { color: var(--bone-dim); font-size: 14px; margin-bottom: 20px; }
   .plan-price { font-family: var(--font-display); font-size: 44px; color: var(--bone); line-height: 1; margin-bottom: 4px; }
@@ -271,7 +271,7 @@
   .captura-lead input[type="email"]:focus { border-color: var(--crimson); outline: none; }
   .captura-lead .hp { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .captura-estado { font-family: var(--font-mono); font-size: 11.5px; margin-top: 12px; min-height: 16px; }
-  .captura-estado.error { color: var(--crimson-bright); }
+  .captura-estado.error { color: var(--crimson-text); }
   .captura-estado.ok { color: var(--whatsapp); }
 
   /* ==========================================================================
@@ -391,7 +391,7 @@
     <form id="quizForm">
       <div class="quiz-pregunta" data-reveal>
         <div class="quiz-numero">Pregunta 1 de 4</div>
-        <h3>¿Hasta dónde quieres llegar con el canto?</h3>
+        <h2>¿Hasta dónde quieres llegar con el canto?</h2>
         <div class="quiz-opciones" data-pregunta="ambicion">
           <div class="quiz-opcion">
             <input type="radio" name="ambicion" id="amb-1" value="0" required>
@@ -414,7 +414,7 @@
 
       <div class="quiz-pregunta" data-reveal>
         <div class="quiz-numero">Pregunta 2 de 4</div>
-        <h3>¿Qué buscas ahora mismo?</h3>
+        <h2>¿Qué buscas ahora mismo?</h2>
         <div class="quiz-opciones" data-pregunta="objetivo">
           <div class="quiz-opcion">
             <input type="radio" name="objetivo" id="obj-1" value="0" required>
@@ -437,7 +437,7 @@
 
       <div class="quiz-pregunta" data-reveal>
         <div class="quiz-numero">Pregunta 3 de 4</div>
-        <h3>¿Cuánto tiempo puedes comprometerte ahora mismo?</h3>
+        <h2>¿Cuánto tiempo puedes comprometerte ahora mismo?</h2>
         <div class="quiz-opciones" data-pregunta="compromiso">
           <div class="quiz-opcion">
             <input type="radio" name="compromiso" id="com-1" value="0" required>
@@ -460,7 +460,7 @@
 
       <div class="quiz-pregunta" data-reveal>
         <div class="quiz-numero">Pregunta 4 de 4</div>
-        <h3>¿Cuál es tu prioridad?</h3>
+        <h2>¿Cuál es tu prioridad?</h2>
         <div class="quiz-opciones" data-pregunta="prioridad">
           <div class="quiz-opcion">
             <input type="radio" name="prioridad" id="pri-1" value="0" required>

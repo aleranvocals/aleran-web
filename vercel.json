@@ -1,9 +1,9 @@
 {
   "redirects": [
-    { "source": "/herramientas", "destination": "/herramientas/index.html", "permanent": false },
-    { "source": "/herramientas/", "destination": "/herramientas/index.html", "permanent": false },
-    { "source": "/quiz", "destination": "/quiz.html", "permanent": false },
-    { "source": "/quiz/", "destination": "/quiz.html", "permanent": false }
+    { "source": "/herramientas", "destination": "/herramientas/index.html", "permanent": true },
+    { "source": "/herramientas/", "destination": "/herramientas/index.html", "permanent": true },
+    { "source": "/quiz", "destination": "/quiz.html", "permanent": true },
+    { "source": "/quiz/", "destination": "/quiz.html", "permanent": true }
   ],
   "rewrites": [
     { "source": "/herramientas/:path*", "destination": "https://aleran-piano.vercel.app/:path*" }
