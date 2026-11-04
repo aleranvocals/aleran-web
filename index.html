@@ -7,14 +7,8 @@
 <meta name="description" content="Áleran. Vocal coach, producción musical 360° y proyecto artístico. Clases de canto presenciales u online, estudio de grabación profesional y música original.">
 <link rel="canonical" href="https://www.aleranvocals.es/">
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-LZRJ0C776T"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-LZRJ0C776T');
-</script>
+<!-- Analítica: consent.js carga Google Analytics solo si se acepta -->
+<script src="/consent.js"></script>
 
 <!-- FAVICON / ICONOS -->
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -2019,6 +2013,7 @@
       </a>
     </nav>
     <p>© 2026 Áleran. Todos los derechos reservados.</p>
+    <p><a href="/cookies.html">Cookies</a></p>
     <p>Vocal Coach · Producción 360° · Proyecto Artístico</p>
     <button type="button" id="visitCounterBtn" class="visit-counter-trigger" aria-label="Ver estadísticas del sitio" aria-expanded="false">%</button>
     <div id="visitCounterPanel" class="visit-counter-panel" role="status" hidden></div>
@@ -2512,6 +2507,7 @@
 
     function registerVisit(){
       if (sessionStorage.getItem('visitCounted')) return;
+      if (!window.AleranConsent || window.AleranConsent.estado() !== 'granted') return; // contador de terceros: solo con consentimiento
       fetch(`https://abacus.jasoncameron.dev/hit/${NAMESPACE}/${KEY}`)
         .then(r => r.json())
         .then(data => {

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cookies — Áleran Vocals</title>
+<meta name="description" content="Qué cookies usa aleranvocals.es, para qué y cómo aceptarlas, rechazarlas o cambiar tu elección." />
+<link rel="canonical" href="https://www.aleranvocals.es/cookies.html" />
+<link rel="icon" href="/favicon.ico" />
+<script src="/consent.js"></script>
+<style>
+  :root { --bg:#0a0808; --panel:#120e0e; --line:#3a2a2a; --txt:#f2e9e4; --dim:#c9bdb6; --crimson:#93172c; --acento:#e2597a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:400 16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:32px 20px 64px; }
+  h1 { font-size:1.9rem; margin:0 0 6px; }
+  h2 { font-size:1.15rem; margin:28px 0 8px; }
+  p, li { color:var(--dim); }
+  a { color:var(--acento); }
+  table { width:100%; border-collapse:collapse; margin:10px 0; font-size:.92rem; }
+  th, td { text-align:left; padding:9px 10px; border:1px solid var(--line); vertical-align:top; }
+  th { background:var(--panel); color:var(--txt); }
+  td { color:var(--dim); }
+  .estado { padding:12px 14px; border:1px solid var(--line); background:var(--panel); border-radius:10px; margin:14px 0; }
+  .botones { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+  button { min-height:44px; padding:0 20px; border-radius:8px; border:1px solid var(--crimson); background:#1a1414; color:var(--txt); font:600 15px system-ui,sans-serif; cursor:pointer; }
+  button.principal { background:var(--crimson); }
+  button:focus-visible, a:focus-visible { outline:2px solid var(--acento); outline-offset:2px; }
+  .volver { display:inline-block; margin-bottom:18px; }
+</style>
+</head>
+<body>
+<main id="contenido">
+  <a class="volver" href="/">← Volver a la web</a>
+  <h1>Cookies</h1>
+  <p>Última actualización: 4 de noviembre de 2026.</p>
+
+  <h2>Tu elección</h2>
+  <div class="estado" aria-live="polite">
+    <p id="estadoCookies" style="margin:0"></p>
+    <div class="botones">
+      <button type="button" id="btnRechazar">Rechazar</button>
+      <button type="button" id="btnAceptar" class="principal">Aceptar</button>
+    </div>
+  </div>
+  <p>Puedes cambiarla cuando quieras. Rechazar es tan fácil como aceptar y la web funciona igual.</p>
+
+  <h2>Qué se usa</h2>
+  <table>
+    <thead><tr><th>Qué</th><th>Para qué</th><th>Cuándo</th><th>Duración</th></tr></thead>
+    <tbody>
+      <tr><td>Google Analytics 4 (<code>_ga</code>, <code>_ga_LZRJ0C776T</code>), de Google</td><td>Contar visitas y ver qué páginas se usan, con datos agregados. La IP se anonimiza.</td><td>Solo si pulsas Aceptar</td><td>Hasta 2 años</td></tr>
+      <tr><td>Contador de visitas (abacus.jasoncameron.dev), de un tercero</td><td>Sumar una visita por sesión. El servicio recibe tu dirección IP al contarla.</td><td>Solo si pulsas Aceptar</td><td>Una sesión</td></tr>
+      <tr><td><code>aleran-consent</code>, en el almacenamiento de tu navegador</td><td>Recordar si aceptaste o rechazaste, para no preguntártelo en cada página.</td><td>Siempre (es necesaria)</td><td>12 meses</td></tr>
+    </tbody>
+  </table>
+  <p>No hay publicidad, ni cookies de redes sociales para seguirte, ni perfiles.</p>
+
+  <h2>Las herramientas de canto</h2>
+  <p>Las herramientas de <a href="/herramientas/">aleranvocals.es/herramientas</a> no usan analítica ni cookies de terceros. Cuentan lo que guardan en <a href="/herramientas/privacidad.html">su página de privacidad</a>.</p>
+
+  <h2>Cómo borrarlas</h2>
+  <p>Desde los ajustes de tu navegador (Chrome, Safari, Firefox, Edge) puedes ver y borrar las cookies de este sitio. Si ya aceptaste y ahora rechazas desde esta página, se borran las de analítica.</p>
+
+  <h2>Contacto</h2>
+  <p>Si tienes dudas, escribe a <a href="mailto:contacto@aleranvocals.es">contacto@aleranvocals.es</a>.</p>
+</main>
+<script>
+  (function () {
+    var estado = document.getElementById("estadoCookies");
+    function pintar() {
+      var e = window.AleranConsent && window.AleranConsent.estado();
+      estado.textContent = e === "granted" ? "Ahora mismo: has aceptado las cookies de analítica."
+        : e === "denied" ? "Ahora mismo: has rechazado las cookies de analítica."
+        : "Ahora mismo: aún no has elegido.";
+    }
+    document.getElementById("btnAceptar").addEventListener("click", function () { window.AleranConsent.elegir("granted"); pintar(); });
+    document.getElementById("btnRechazar").addEventListener("click", function () { window.AleranConsent.elegir("denied"); pintar(); });
+    pintar();
+  })();
+</script>
+</body>
+</html>
