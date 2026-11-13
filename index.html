@@ -745,6 +745,12 @@
     background: linear-gradient(160deg, rgba(147,23,44,0.12), transparent 60%), var(--bg-panel-2);
   }
   .spotify-frame iframe { width: 100%; height: 352px; border: 0; border-radius: 2px; }
+  .spotify-facade { width: 100%; height: 352px; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: 2px; background: linear-gradient(160deg, #1a0d10, #0c0809); color: #f2e9eb; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; font: inherit; }
+  .spotify-facade:hover, .spotify-facade:focus-visible { border-color: var(--crimson, #c02241); outline: none; }
+  .spotify-facade-play { width: 64px; height: 64px; border-radius: 50%; background: var(--crimson, #c02241); display: grid; place-items: center; }
+  .spotify-facade-play svg { width: 26px; height: 26px; margin-left: 3px; }
+  .spotify-facade-t { font-size: 18px; letter-spacing: .02em; }
+  .spotify-facade-s { font-size: 12px; opacity: .7; }
 
   /* ==========================================================================
      12. CONTACTO
@@ -1830,7 +1836,12 @@
     </div>
     <div data-reveal="right">
       <div class="spotify-frame">
-        <iframe src="https://open.spotify.com/embed/track/1DCYHvOzBHQJmQ9Kcfo37R?utm_source=generator&theme=0" title="Reproductor de Spotify de Áleran — Del Abismo a la Eternidad" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+        <button type="button" class="spotify-facade" id="spotifyFacade" aria-label="Cargar el reproductor de Spotify (Spotify usa sus propias cookies)">
+          <span class="spotify-facade-play"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><use href="#icon-play"/></svg></span>
+          <span class="spotify-facade-t">Del Abismo a la Eternidad</span>
+          <span class="spotify-facade-s">Toca para cargar el reproductor de Spotify</span>
+        </button>
+        <noscript><iframe src="https://open.spotify.com/embed/track/1DCYHvOzBHQJmQ9Kcfo37R?utm_source=generator&theme=0" title="Reproductor de Spotify de Áleran — Del Abismo a la Eternidad" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe></noscript>
       </div>
     </div>
   </div>
@@ -2610,6 +2621,23 @@
       });
     }
   })();
+</script>
+<script>
+(function(){
+  var b=document.getElementById('spotifyFacade'); if(!b) return;
+  function montar(autoplay){
+    if(!b.parentNode) return;
+    var f=document.createElement('iframe');
+    f.src='https://open.spotify.com/embed/track/1DCYHvOzBHQJmQ9Kcfo37R?utm_source=generator&theme=0';
+    f.title='Reproductor de Spotify de Áleran — Del Abismo a la Eternidad';
+    f.setAttribute('allow','autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture');
+    f.loading='lazy';
+    b.parentNode.replaceChild(f,b);
+  }
+  b.addEventListener('click',function(){montar(true)});
+  // Si ya aceptó las cookies, se carga solo (como antes).
+  try{ if(window.AleranConsent && window.AleranConsent.estado()==='granted') montar(false); }catch(e){}
+})();
 </script>
 </body>
 </html>
