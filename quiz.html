@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>¿Qué plan es para ti? — Áleran Vocals</title>
 <meta name="description" content="Responde 4 preguntas rápidas y descubre cuál de los 4 planes de clases de canto de Áleran (Forja, Obsidiana, Esmeralda o Rubí) encaja mejor contigo.">
-<link rel="canonical" href="https://www.aleranvocals.es/quiz">
+<link rel="canonical" href="https://www.aleranvocals.es/quiz.html">
 
 <!-- Analítica: consent.js carga Google Analytics solo si se acepta -->
 <script src="/consent.js"></script>
@@ -21,19 +21,21 @@
 
 <!-- VISTA PREVIA PARA WHATSAPP Y REDES SOCIALES (OPEN GRAPH) -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://www.aleranvocals.es/quiz">
+<meta property="og:url" content="https://www.aleranvocals.es/quiz.html">
 <meta property="og:locale" content="es_ES">
 <meta property="og:site_name" content="Áleran Vocals">
 <meta property="og:title" content="¿Qué plan es para ti? — Áleran Vocals">
 <meta property="og:description" content="Responde 4 preguntas rápidas y descubre qué plan de clases encaja mejor contigo.">
-<meta property="og:image" content="https://www.aleranvocals.es/foto-alera-coach.webp">
-<meta property="og:image:type" content="image/webp">
+<meta property="og:image" content="https://www.aleranvocals.es/og-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Áleran, vocal coach y productor musical">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="¿Qué plan es para ti? — Áleran Vocals">
 <meta name="twitter:description" content="Responde 4 preguntas rápidas y descubre qué plan de clases encaja mejor contigo.">
-<meta name="twitter:image" content="https://www.aleranvocals.es/foto-alera-coach.webp">
+<meta name="twitter:image" content="https://www.aleranvocals.es/og-image.jpg">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -357,7 +359,7 @@
       <a href="/#contacto">Contacto</a>
       <a href="/herramientas/guia.html">Práctica Vocal</a>
       <a href="https://blog.aleranvocals.es" target="_blank" rel="noopener">Blog</a>
-      <a href="/quiz" class="active">¿Qué Plan?</a>
+      <a href="/quiz.html" class="active">¿Qué Plan?</a>
       <a href="https://wa.me/34632926726?text=Hola%20Áleran,%20quiero%20información%20sobre%20las%20clases%20de%20canto" target="_blank" rel="noopener" class="btn whatsapp small">
         <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; min-width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; margin-right: 5px; flex-shrink: 0;"><use href="#icon-whatsapp-outline"/></svg>
         WhatsApp
@@ -512,7 +514,7 @@
         <form id="formCapturaLead" novalidate>
           <label for="capturaEmail" style="position:absolute; opacity:0; width:1px; height:1px;">Tu email</label>
           <input type="email" id="capturaEmail" name="email" placeholder="tu@email.com" required>
-          <input type="text" id="capturaEmpresa" name="empresa" class="hp" tabindex="-1" autocomplete="off">
+          <input type="text" id="capturaEmpresa" name="empresa" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
           <button type="submit" class="btn ghost small">Que me escriba</button>
         <p class="aviso-datos" style="font-size:12px;opacity:.8;margin:6px 0">Usaré tu email solo para escribirte sobre tu plan. <a href="/privacidad.html">Privacidad</a>.</p>
         </form>
