@@ -41,6 +41,10 @@ ESTILO = """
   .landing .plan-mini small { display: block; color: var(--muted); font-size: .85rem; margin-top: 4px; }
   .landing .otras { border-top: 1px solid var(--line); margin-top: 46px; padding-top: 18px; font-size: .95rem; }
   .landing .otras a, .landing p a { color: var(--crimson-text); }
+  .landing figure { margin: 26px 0 30px; }
+  .landing figure img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
+  .landing figure.vertical img { max-width: 440px; margin: 0 auto; max-height: none; }
+  .landing figcaption { color: var(--muted); font-size: .8rem; margin-top: 8px; text-align: center; }
 </style>
 """
 
@@ -169,6 +173,27 @@ CONTENIDO = {
 }
 
 
+def figura(src, ancho, alto, alt, credito=None, vertical=False):
+    clase = ' class="vertical"' if vertical else ""
+    pie = f"<figcaption>{credito}</figcaption>" if credito else ""
+    return (f'<figure{clase}><img src="/{src}" width="{ancho}" height="{alto}" alt="{alt}" loading="lazy" decoding="async">{pie}</figure>\n')
+
+
+FOTOS = {
+    # clave: [(después de qué texto, figura)]
+    "murcia": [("</p>", figura("foto-directo-angel-negro.webp", 900, 599,
+        "Áleran cantando en directo con Ángel Negro, micrófono en mano", "Áleran en directo con Ángel Negro · Foto: @cromfotografia"))],
+    "online": [("</p>", figura("foto-alera-coach-movil.webp", 900, 1127,
+        "Áleran, vocal coach, profesor de canto online", None, vertical=True))],
+    "metal": [
+        ("</p>", figura("foto-canto-metal.webp", 640, 960,
+            "Áleran haciendo un gutural en directo, con cadenas y micrófono", "Foto: Harold Pineda · Metal Machine", vertical=True)),
+        ("<h2>Gutural y rasgado no son lo mismo</h2>", figura("foto-canto-extremo.webp", 610, 960,
+            "Áleran con pintura de guerra cantando voces extremas en directo", None, vertical=True)),
+    ],
+}
+
+
 def json_ld(clave, c, url):
     datos = {
         "@context": "https://schema.org",
@@ -178,6 +203,7 @@ def json_ld(clave, c, url):
         "url": url,
         "description": c["desc"],
         "provider": {"@type": "Person", "name": "Áleran", "url": WEB + "/"},
+        "image": WEB + "/" + FOTOS[clave][0][1].split('src="/')[1].split('"')[0],
         "areaServed": ({"@type": "City", "name": "Murcia"} if clave == "murcia" else "Online"),
         "offers": [
             {"@type": "Offer", "name": "Forja Vocal", "price": "25", "priceCurrency": "EUR"},
@@ -190,7 +216,12 @@ def json_ld(clave, c, url):
 
 
 for clave, archivo in PAGINAS.items():
-    c = CONTENIDO[clave]
+    c = dict(CONTENIDO[clave])
+    for ancla, fig in FOTOS.get(clave, []):
+        if ancla == "</p>":
+            c["cuerpo"] = c["cuerpo"].replace("</p>", "</p>\n" + fig, 1)  # justo tras la entradilla
+        else:
+            c["cuerpo"] = c["cuerpo"].replace(ancla, ancla + "\n" + fig, 1)
     url = f"{WEB}/{archivo}"
     h = cabeza
     h = re.sub(r"<title>.*?</title>", f"<title>{c['title']}</title>", h, count=1, flags=re.S)
