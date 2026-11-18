@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/luopos",
+      "destination": "/luopos/",
+      "permanent": true
+    },
+    {
       "source": "/herramientas",
       "destination": "/herramientas/index.html",
       "permanent": true
@@ -25,6 +30,10 @@
     {
       "source": "/herramientas/:path*",
       "destination": "https://aleran-piano.vercel.app/:path*"
+    },
+    {
+      "source": "/luopos/:path*",
+      "destination": "https://luopos.vercel.app/:path*"
     }
   ],
   "headers": [
