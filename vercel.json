@@ -28,6 +28,10 @@
   ],
   "rewrites": [
     {
+      "source": "/luopos/",
+      "destination": "https://luopos.vercel.app/index.html"
+    },
+    {
       "source": "/herramientas/:path*",
       "destination": "https://aleran-piano.vercel.app/:path*"
     },
