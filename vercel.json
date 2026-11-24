@@ -2,7 +2,17 @@
   "redirects": [
     {
       "source": "/voxstudio",
-      "destination": "/voxstudio/",
+      "destination": "/epicstudio/",
+      "permanent": true
+    },
+    {
+      "source": "/voxstudio/:path*",
+      "destination": "/epicstudio/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/epicstudio",
+      "destination": "/epicstudio/",
       "permanent": true
     },
     {
@@ -72,7 +82,7 @@
       ]
     },
     {
-      "source": "/((?!herramientas|voxstudio).*)",
+      "source": "/((?!herramientas|voxstudio|epicstudio).*)",
       "headers": [
         {
           "key": "Permissions-Policy",
@@ -90,7 +100,7 @@
       ]
     },
     {
-      "source": "/voxstudio(.*)",
+      "source": "/epicstudio(.*)",
       "headers": [
         {
           "key": "Permissions-Policy",
@@ -103,7 +113,7 @@
       ]
     },
     {
-      "source": "/voxstudio/(.*)\\.(js|css|ttf)",
+      "source": "/epicstudio/(.*)\\.(js|css|ttf)",
       "headers": [
         {
           "key": "Cache-Control",
