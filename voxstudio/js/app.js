@@ -116,12 +116,14 @@
   }
   function K(path, label, min, max, o = {}) {
     const src = o.src || 'p';
-    const w = Knob(Object.assign({ label, min, max, def: o.def !== undefined ? o.def : (src === 'm' ? 0 : getP(DEF, path)), value: val(src, path), onChange: (v) => cambio(src, path, v, o.after) }, o));
+    const w = (o.mas ? Bar : Knob)(Object.assign({ label, min, max, def: o.def !== undefined ? o.def : (src === 'm' ? 0 : getP(DEF, path)), value: val(src, path), onChange: (v) => cambio(src, path, v, o.after) }, o));
+    if (o.mas) w.el.classList.add('mas-item'); // lo secundario va como barra en «Más ajustes» (24/11)
     return bind(src, path, w).el;
   }
   function SG(path, options, o = {}) { const w = Seg(Object.assign({ options, value: val('p', path), onChange: (v) => cambio('p', path, v, o.after) }, o)); return bind('p', path, w).el; }
   function SLP(path, label, options, o = {}) { const w = Select(Object.assign({ label, options, value: val('p', path), onChange: (v) => cambio('p', path, v, o.after) }, o)); bind('p', path, w); return h('div', { class: 'field' }, h('label', null, label), w.el); }
   function SW(path, label, o = {}) { const w = Switch(Object.assign({ label, value: val('p', path), onChange: (v) => cambio('p', path, v, o.after) }, o)); return bind('p', path, w).el; }
+  function MASI(el) { el.classList.add('mas-item'); return el; } // a «Más ajustes»
   function when(el, fn) { VIS.push({ el, fn }); return el; }
   function refresh() {
     for (const r of REG) { const v = val(r.src, r.path); if (v !== undefined) r.w.set(v); }
@@ -259,6 +261,16 @@
   function card(o) {
     const sw = o.on ? Switch({ value: getP(S.params, o.on), label: '', ayuda: 'Encender o apagar este módulo', onChange: (v) => { const rz = o.on === 'realce.on'; if (rz) aireConRealce(v); cambio('p', o.on, v); if (rz) refresh(); } }) : null;
     if (sw) bind('p', o.on, sw);
+    const items = o.body ? [...o.body.querySelectorAll('.mas-item')] : [];
+    if (items.length) {
+      const grid = h('div', { class: 'masgrid' });
+      for (const it of items) {
+        const fns = VIS.filter((v) => v.el !== it && v.el.contains(it)).map((v) => v.fn); // si su grupo solo se ve en un modo, el ajuste también
+        if (fns.length) VIS.push({ el: it, fn: (P) => fns.every((f) => f(P)) });
+        grid.appendChild(it);
+      }
+      o.body.appendChild(h('details', { class: 'mas' }, h('summary', null, 'Más ajustes'), grid));
+    }
     const el = h('div', { class: 'panel card' + (o.w2 ? ' w2' : ''), id: 'card-' + o.id },
       h('div', { class: 'chead' }, h('h3', null, h('span', { class: 'led' }), o.title), o.extra || null, sw ? sw.el : null),
       h('div', { class: 'body' }, o.body));
@@ -296,36 +308,36 @@
       h('div', { class: 'sect grid' },
         when(h('div', { class: 'grid' },
           K(p('entrada'), 'Entrada', 0, 24, { fmt: fmt.db, step: 0.1, ayuda: 'Cuánto empujas la voz contra el compresor FET (su umbral es fijo, como el original). Más entrada = más compresión.' }),
-          K(p('ataque'), 'Ataque', 0.02, 0.8, { curve: 'log', fmt: fmt.ms, ayuda: 'De 20 µs a 0,8 ms: muy rápido. Más lento deja pasar el golpe de la consonante.' }),
-          K(p('relajacion'), 'Relajación', 50, 1100, { curve: 'log', fmt: fmt.ms, ayuda: 'Lo que tarda en soltar (50 ms a 1,1 s). Rápido = más «pumping» y energía.' }),
+          K(p('ataque'), 'Ataque', 0.02, 0.8, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'De 20 µs a 0,8 ms: muy rápido. Más lento deja pasar el golpe de la consonante.' }),
+          K(p('relajacion'), 'Relajación', 50, 1100, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'Lo que tarda en soltar (50 ms a 1,1 s). Rápido = más «pumping» y energía.' }),
           h('div', { class: 'field', style: { width: '100%' } }, h('label', null, 'Relación'), SG(p('ratioFet'), [{ v: '4', label: '4' }, { v: '8', label: '8' }, { v: '12', label: '12' }, { v: '20', label: '20' }, { v: 'todos', label: 'TODOS', ayuda: '«Todos los botones»: compresión extrema, sucia y con mucho carácter (truco clásico de rock y metal).' }], { ayuda: 'Relación de compresión. 4 = compresor, 20 = limitador.' }))), isT('fet')),
         when(h('div', { class: 'grid' },
           K(p('reduccion'), 'Reducción de pico', 0, 100, { fmt: fmt.int, step: 1, ayuda: 'Cuánto comprime (como el mando grande del original). Mira la barra de reducción: 3–6 dB es lo normal en voz.' }),
-          K(p('enfasis'), 'Énfasis agudos', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Hace que comprima más con los agudos (sibilancias, notas altas chillonas).' }),
+          K(p('enfasis'), 'Énfasis agudos', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Hace que comprima más con los agudos (sibilancias, notas altas chillonas).' }),
           h('div', { class: 'field' }, h('label', null, 'Modo'), SG(p('optoModo'), [{ v: 'comprimir', label: 'Comprimir' }, { v: 'limitar', label: 'Limitar' }], { ayuda: 'Comprimir ≈ 3:1 muy suave. Limitar ≈ 12:1.' }))), isT('optico')),
         when(h('div', { class: 'grid' },
           K(p('umbral'), 'Umbral', -50, 0, { fmt: fmt.db, step: 0.5, ayuda: 'A partir de qué nivel empieza a comprimir.' }),
           K(p('ratio'), 'Relación', 1, 30, { curve: 2, fmt: fmt.ratio, step: 0.1, ayuda: 'Cuánto comprime lo que pasa del umbral. 2–4:1 en voz; 30 = ∞:1 (limitador).' }),
-          K(p('rodilla'), 'Rodilla', 0, 24, { fmt: fmt.db, step: 0.5, ayuda: 'Rodilla suave: empieza a comprimir poco a poco antes del umbral. Más natural.' }),
-          K(p('ataque'), 'Ataque', 0.1, 30, { curve: 'log', fmt: fmt.ms, ayuda: 'Velocidad a la que empieza a comprimir.' }),
-          K(p('relajacion'), 'Relajación', 30, 1500, { curve: 'log', fmt: fmt.ms, ayuda: 'Velocidad a la que deja de comprimir.' }),
-          SW(p('autoRel'), 'Relajación auto', { ayuda: 'La relajación se adapta sola a lo que cantas (más lenta tras frases largas).' })), isT('vca')),
+          K(p('rodilla'), 'Rodilla', 0, 24, { mas: true, fmt: fmt.db, step: 0.5, ayuda: 'Rodilla suave: empieza a comprimir poco a poco antes del umbral. Más natural.' }),
+          K(p('ataque'), 'Ataque', 0.1, 30, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'Velocidad a la que empieza a comprimir.' }),
+          K(p('relajacion'), 'Relajación', 30, 1500, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'Velocidad a la que deja de comprimir.' }),
+          MASI(SW(p('autoRel'), 'Relajación auto', { ayuda: 'La relajación se adapta sola a lo que cantas (más lenta tras frases largas).' }))), isT('vca')),
         when(h('div', { class: 'grid' },
           h('div', { class: 'field', style: { width: '100%' } }, h('label', null, 'Estilo'), SG(p('estilo'), [
             { v: 'limpio', label: 'Limpio', ayuda: 'Detector de picos, transparente.' }, { v: 'vocal', label: 'Vocal', ayuda: 'Detector RMS y relajación que depende de la frase: suena natural en voz.' },
             { v: 'pegamento', label: 'Pegamento', ayuda: 'RMS lento: une y redondea.' }, { v: 'impacto', label: 'Impacto', ayuda: 'Picos rápidos: más pegada y control de consonantes.' }])),
           K(p('umbral'), 'Umbral', -60, 0, { fmt: fmt.db, step: 0.5, ayuda: 'A partir de qué nivel empieza a comprimir.' }),
           K(p('ratio'), 'Relación', 1, 30, { curve: 2, fmt: fmt.ratio, step: 0.1, ayuda: 'Cuánto comprime. 30 = ∞:1.' }),
-          K(p('rodilla'), 'Rodilla', 0, 72, { curve: 1.6, fmt: fmt.db, step: 0.5, ayuda: 'De 0 (dura) a 72 dB (suavísima).' }),
-          K(p('ataque'), 'Ataque', 0.005, 250, { curve: 'log', fmt: fmt.ms, ayuda: 'De 5 µs a 250 ms.' }),
-          K(p('relajacion'), 'Relajación', 10, 2500, { curve: 'log', fmt: fmt.ms, ayuda: 'De 10 ms a 2,5 s.' }),
-          K(p('retencion'), 'Retención', 0, 500, { curve: 2, fmt: fmt.ms, ayuda: 'Espera antes de soltar (hold). Evita que «respire» entre sílabas.' }),
-          K(p('anticipo'), 'Anticipo', 0, 10, { fmt: fmt.ms, step: 0.1, ayuda: 'Mira el audio unos milisegundos antes (lookahead) para no dejar escapar ningún golpe. No cambia la sincronía con la base.' }),
-          K(p('rango'), 'Rango', 0, 40, { fmt: (v) => (v <= 0 ? 'sin límite' : num(v) + ' dB'), step: 0.5, ayuda: 'Máximo de reducción. 0 = sin límite.' })), isT('moderno')),
-        K(p('salida'), 'Salida', -12, 24, { fmt: fmt.db, step: 0.1, ayuda: 'Volumen de salida. Con «Ganancia auto» encendida es solo un retoque.' }),
-        SW(p('autoGan'), 'Ganancia auto', { ayuda: 'Compensa sola el volumen que quita la compresión, para que al comprimir más no suene más flojo (y no te engañe el oído).' }),
-        K(p('mezcla'), 'Mezcla', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Compresión en paralelo («New York»): mezcla la voz comprimida con la original. 100 % = todo comprimido.' }),
-        when(K(p('scHpf'), 'Filtro detector', 0, 300, { fmt: (v) => (v < 21 ? 'apagado' : Math.round(v) + ' Hz'), step: 1, ayuda: 'El compresor ignora los graves por debajo de esta frecuencia (no se dispara con golpes de micro o notas graves).' }), (P) => P[k].tipo !== 'optico')));
+          K(p('rodilla'), 'Rodilla', 0, 72, { mas: true, curve: 1.6, fmt: fmt.db, step: 0.5, ayuda: 'De 0 (dura) a 72 dB (suavísima).' }),
+          K(p('ataque'), 'Ataque', 0.005, 250, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'De 5 µs a 250 ms.' }),
+          K(p('relajacion'), 'Relajación', 10, 2500, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'De 10 ms a 2,5 s.' }),
+          K(p('retencion'), 'Retención', 0, 500, { mas: true, curve: 2, fmt: fmt.ms, ayuda: 'Espera antes de soltar (hold). Evita que «respire» entre sílabas.' }),
+          K(p('anticipo'), 'Anticipo', 0, 10, { mas: true, fmt: fmt.ms, step: 0.1, ayuda: 'Mira el audio unos milisegundos antes (lookahead) para no dejar escapar ningún golpe. No cambia la sincronía con la base.' }),
+          K(p('rango'), 'Rango', 0, 40, { mas: true, fmt: (v) => (v <= 0 ? 'sin límite' : num(v) + ' dB'), step: 0.5, ayuda: 'Máximo de reducción. 0 = sin límite.' })), isT('moderno')),
+        K(p('salida'), 'Salida', -12, 24, { mas: true, fmt: fmt.db, step: 0.1, ayuda: 'Volumen de salida. Con «Ganancia auto» encendida es solo un retoque.' }),
+        MASI(SW(p('autoGan'), 'Ganancia auto', { ayuda: 'Compensa sola el volumen que quita la compresión, para que al comprimir más no suene más flojo (y no te engañe el oído).' })),
+        K(p('mezcla'), 'Mezcla', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Compresión en paralelo («New York»): mezcla la voz comprimida con la original. 100 % = todo comprimido.' }),
+        when(K(p('scHpf'), 'Filtro detector', 0, 300, { mas: true, fmt: (v) => (v < 21 ? 'apagado' : Math.round(v) + ' Hz'), step: 1, ayuda: 'El compresor ignora los graves por debajo de esta frecuencia (no se dispara con golpes de micro o notas graves).' }), (P) => P[k].tipo !== 'optico')));
     CURVAS.push({ k, tf });
     return card({ id: k, title, on: p('on'), body, w2: false });
   }
@@ -353,74 +365,74 @@
     const eqCard = card({ id: 'eq', title: 'EQ paramétrica', chip: 'EQ', on: 'eq.on', w2: true, body: h('div', null, eqBox, bandTabs, bandPanel) });
     // limpieza
     const gateCard = card({ id: 'gate', title: 'Limpieza', on: 'limpieza.on', body: h('div', null,
-      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '10px' } }, 'Baja el ruido de fondo entre frases (ordenador, ventilador, respiraciones flojas).'),
+      h('div', { class: 'desc' }, 'Baja el ruido de fondo entre frases (ordenador, ventilador, respiraciones flojas).'),
       grMeter('gr-gate'), h('div', { class: 'grid sect' },
         K('limpieza.umbral', 'Umbral', -80, -20, { fmt: fmt.db, step: 0.5, ayuda: 'Por debajo de este nivel se considera silencio y se baja.' }),
         K('limpieza.rango', 'Cuánto baja', 0, 40, { fmt: fmt.db, step: 0.5, ayuda: 'Cuántos dB se baja el ruido entre frases. 10–15 dB suena natural.' }),
-        K('limpieza.relajacion', 'Relajación', 20, 1000, { curve: 'log', fmt: fmt.ms, ayuda: 'Lo que tarda en cerrar al acabar la frase. Demasiado rápido corta los finales.' }))) });
+        K('limpieza.relajacion', 'Relajación', 20, 1000, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'Lo que tarda en cerrar al acabar la frase. Demasiado rápido corta los finales.' }))) });
     const rzCard = card({ id: 'rz', title: 'Realce vocal', on: 'realce.on', body: h('div', null,
-      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '10px' } }, 'Voz «de radio» en un solo paso: micro de locución (calidez, menos caja, presencia y aire), sin rumble ni golpes de «p», y compresión en tres bandas que baja lo fuerte y sube lo flojo. La voz queda densa y siempre delante.'),
+      h('div', { class: 'desc' }, 'Voz «de radio» en un solo paso: micro de locución (calidez, menos caja, presencia y aire), sin rumble ni golpes de «p», y compresión en tres bandas que baja lo fuerte y sube lo flojo. La voz queda densa y siempre delante.'),
       grMeter('gr-rz'), h('div', { class: 'grid sect' },
         SG('realce.perfil', [{ v: 'grave', label: 'Voz grave (hombre)' }, { v: 'aguda', label: 'Voz aguda (mujer)' }], { ayuda: 'Ajusta los cortes y la calidez al tipo de voz.' }),
         K('realce.cantidad', 'Cantidad', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto se nota. 40–70 % es lo habitual; a 100 % es muy de radio. Con la mezcla automática hecha, el volumen se mantiene igual al subirlo. Si tu grabación tiene ruido de fondo, enciende también la Limpieza.' }))) });
     const notaVista = h('span', { class: 'mono', id: 'arNota' }, '—');
     const arCard = card({ id: 'ar', title: 'Armónicos', on: 'armonicos.on', body: h('div', null,
-      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '10px' } }, 'Sube la nota que cantas y todas sus octavas (por ejemplo, La: 440, 880, 1760…): la nota brilla y destaca, como en los gritos y agudos de metal.'),
+      h('div', { class: 'desc' }, 'Sube la nota que cantas y todas sus octavas (por ejemplo, La: 440, 880, 1760…): la nota brilla y destaca, como en los gritos y agudos de metal.'),
       h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '8px' } }, 'Nota ahora: ', notaVista),
       h('div', { class: 'grid sect' },
         SG('armonicos.modo', [{ v: 'sigue', label: 'Sigue tu nota' }, { v: 'fija', label: 'Nota fija' }], { ayuda: '«Sigue tu nota»: detecta lo que cantas y mueve los filtros contigo. «Nota fija»: siempre la misma nota, como haces en Audition con un trozo.' }),
         when(SLP('armonicos.nota', 'Nota', D.NOTAS.map((n) => ({ v: n, label: n }))), (p) => p.armonicos.modo === 'fija'),
         K('armonicos.ganancia', 'Cuánto sube', 0, 12, { fmt: fmt.db, step: 0.5, ayuda: 'dB que se suben la nota y sus octavas. 4–6 dB es lo habitual.' }),
-        K('armonicos.ancho', 'Estrechez', 1, 30, { curve: 'log', fmt: (v) => 'Q ' + num(v, 1), ayuda: 'Más alto = solo la nota exacta; más bajo = también lo de alrededor.' }),
+        K('armonicos.ancho', 'Estrechez', 1, 30, { mas: true, curve: 'log', fmt: (v) => 'Q ' + num(v, 1), ayuda: 'Más alto = solo la nota exacta; más bajo = también lo de alrededor.' }),
         K('armonicos.desde', 'A partir de', 60, 1500, { curve: 'log', fmt: (v) => { const n = 12 * Math.log2(v / 440) + 57, i = Math.round(n); return D.NOTAS[((i % 12) + 12) % 12] + Math.floor(i / 12) + ' · ' + fmt.hz(v); }, ayuda: 'Solo actúa en notas a partir de esta (en «Nota fija», sube las octavas desde aquí). Para gritos y agudos: a partir de Mi4–La4.' }))) });
     const corCard = card({ id: 'cor', title: 'Voz de móvil', on: 'corrector.on', body: h('div', null,
-      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '6px' } }, 'Para tomas grabadas con el móvil o un micro sencillo: quita el ruido de fondo aprendido en tus silencios, acerca el color de tu voz al de un micro de estudio (solo lo que se sale de lo normal: tu timbre se respeta) y recupera agudos que el móvil corta. La mezcla automática lo mide y lo enciende sola si hace falta. Lo que el móvil no captó no se recupera del todo.'),
+      h('div', { class: 'desc' }, 'Para tomas grabadas con el móvil o un micro sencillo: quita el ruido de fondo aprendido en tus silencios, acerca el color de tu voz al de un micro de estudio (solo lo que se sale de lo normal: tu timbre se respeta) y recupera agudos que el móvil corta. La mezcla automática lo mide y lo enciende sola si hace falta. Lo que el móvil no captó no se recupera del todo.'),
       h('div', { class: 'dim mono', id: 'corInfo', style: { fontSize: '11px', marginBottom: '8px' } }, ''),
       grMeter('gr-cor'), h('div', { class: 'grid sect' },
         K('corrector.cantidad', 'Hacia estudio', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto se acerca el color de tu voz a un micro de estudio. 70 % es lo normal; 100 % aplica toda la corrección medida.' }),
         K('corrector.ruido', 'Quitar ruido', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto baja el ruido de fondo (hasta 20 dB) cuando cantas flojo o no cantas. Aprende el ruido de los silencios de tu toma.' }),
         K('corrector.brillo', 'Agudos', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Recupera los agudos que el móvil corta (por encima de su «corte»), generándolos a partir de tu voz. No hace nada si tu toma ya tiene agudos.' }))) });
     const svCard = card({ id: 'sv', title: 'Suavizador', on: 'suavizador.on', body: h('div', null,
-      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '10px' } }, 'Quita lo estridente sin apagar la voz: en cada momento baja solo las frecuencias que sobresalen (lo que pincha, silba o raspa) y solo mientras sobresalen. Idea de los suavizadores tipo Soothe.'),
+      h('div', { class: 'desc' }, 'Quita lo estridente sin apagar la voz: en cada momento baja solo las frecuencias que sobresalen (lo que pincha, silba o raspa) y solo mientras sobresalen. Idea de los suavizadores tipo Soothe.'),
       grMeter('gr-sv'), h('div', { class: 'grid sect' },
         K('suavizador.cantidad', 'Cantidad', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto baja lo que sobresale. 30–60 % suele bastar.' }),
         K('suavizador.nitidez', 'Nitidez', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Alto = solo picos estrechos (silbidos, resonancias); bajo = también zonas anchas ásperas.' }),
-        K('suavizador.desde', 'Desde', 200, 16000, { curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia más baja en la que trabaja.' }),
-        K('suavizador.hasta', 'Hasta', 400, 20000, { curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia más alta en la que trabaja.' }),
-        K('suavizador.relajacion', 'Relajación', 20, 500, { curve: 'log', fmt: fmt.ms, ayuda: 'Lo que tarda en soltar. Rápido = más transparente; lento = más suave.' }))) });
+        K('suavizador.desde', 'Desde', 200, 16000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia más baja en la que trabaja.' }),
+        K('suavizador.hasta', 'Hasta', 400, 20000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia más alta en la que trabaja.' }),
+        K('suavizador.relajacion', 'Relajación', 20, 500, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'Lo que tarda en soltar. Rápido = más transparente; lento = más suave.' }))) });
     // de-esser
     const dsCard = card({ id: 'ds', title: 'De-esser', on: 'deesser.on', body: h('div', null,
-      h('div', { class: 'row', style: { marginBottom: '8px' } }, SG('deesser.modo', [{ v: 'voz', label: 'Voz sola', ayuda: 'Detección inteligente: solo actúa cuando la «s» domina sobre la voz.' }, { v: 'general', label: 'General', ayuda: 'Actúa siempre que la banda supere el umbral.' }]),
-        SG('deesser.proceso', [{ v: 'partida', label: 'Banda partida', ayuda: 'Solo baja los agudos durante la «s». Más transparente.' }, { v: 'ancha', label: 'Banda ancha', ayuda: 'Baja toda la voz durante la «s». A veces más natural.' }])),
-      h('div', { class: 'row', style: { marginBottom: '8px' } }, h('span', { class: 'caps' }, 'Posición'), SG('deesser.posicion', [{ v: 'antes', label: 'Antes de comprimir' }, { v: 'despues', label: 'Después', ayuda: 'Después de los compresores: recoge las eses que la compresión ha subido.' }])),
+      h('div', { class: 'row', style: { marginBottom: '8px' } }, SG('deesser.modo', [{ v: 'voz', label: 'Voz sola', ayuda: 'Detección inteligente: solo actúa cuando la «s» domina sobre la voz.' }, { v: 'general', label: 'General', ayuda: 'Actúa siempre que la banda supere el umbral.' }])),
+      MASI(h('div', { class: 'field' }, h('label', null, 'Banda'), SG('deesser.proceso', [{ v: 'partida', label: 'Banda partida', ayuda: 'Solo baja los agudos durante la «s». Más transparente.' }, { v: 'ancha', label: 'Banda ancha', ayuda: 'Baja toda la voz durante la «s». A veces más natural.' }]))),
+      MASI(h('div', { class: 'field' }, h('label', null, 'Posición'), SG('deesser.posicion', [{ v: 'antes', label: 'Antes de comprimir' }, { v: 'despues', label: 'Después', ayuda: 'Después de los compresores: recoge las eses que la compresión ha subido.' }]))),
       grMeter('gr-ds'),
       h('div', { class: 'grid sect' },
         K('deesser.umbral', 'Umbral', -60, 0, { fmt: fmt.db, step: 0.5, ayuda: 'Más bajo = actúa más. Mira la barra: 3–6 dB en cada «s» es lo normal.' }),
         K('deesser.rango', 'Rango', 0, 20, { fmt: fmt.db, step: 0.5, ayuda: 'Máximo que baja cada «s».' }),
-        K('deesser.fMin', 'Desde', 2000, 12000, { curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia más grave que vigila.' }),
-        K('deesser.fMax', 'Hasta', 4000, 18000, { curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia más aguda que vigila.' }),
-        K('deesser.anticipo', 'Anticipo', 0, 5, { fmt: fmt.ms, step: 0.1, ayuda: 'Detecta la «s» un poco antes para no dejar pasar el principio.' }),
-        SW('deesser.escuchar', 'Escuchar eses', { ayuda: 'Escucha solo lo que detecta (para afinar Desde/Hasta). Acuérdate de apagarlo.' }))) });
+        K('deesser.fMin', 'Desde', 2000, 12000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia más grave que vigila.' }),
+        K('deesser.fMax', 'Hasta', 4000, 18000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia más aguda que vigila.' }),
+        K('deesser.anticipo', 'Anticipo', 0, 5, { mas: true, fmt: fmt.ms, step: 0.1, ayuda: 'Detecta la «s» un poco antes para no dejar pasar el principio.' }),
+        MASI(SW('deesser.escuchar', 'Escuchar eses', { ayuda: 'Escucha solo lo que detecta (para afinar Desde/Hasta). Acuérdate de apagarlo.' })))) });
     const c1 = compCard('comp1', 'Compresor 1');
     const c2 = compCard('comp2', 'Compresor 2');
     const satCard = card({ id: 'sat', title: 'Saturación', on: 'sat.on', body: h('div', null,
       h('div', { class: 'row', style: { marginBottom: '8px' } }, SG('sat.tipo', [{ v: 'cinta', label: 'Cinta', ayuda: 'Cinta magnética: comprime los picos con suavidad, armónicos impares, los agudos saturan antes y un poco de «golpe» de graves.' }, { v: 'valvula', label: 'Válvula', ayuda: 'Triodo: armónicos pares, calidez y brillo suave.' }, { v: 'transistor', label: 'Transistor', ayuda: 'Más duro y con mordida.' }])),
       h('div', { class: 'grid' },
         K('sat.drive', 'Cantidad', 0, 30, { fmt: fmt.db, step: 0.1, ayuda: 'Cuánto se empuja. El volumen se compensa solo.' }),
-        K('sat.tono', 'Tono', -6, 6, { fmt: fmt.db, step: 0.1, ayuda: 'Más oscuro (izquierda) o más brillante (derecha).' }),
+        K('sat.tono', 'Tono', -6, 6, { mas: true, fmt: fmt.db, step: 0.1, ayuda: 'Más oscuro (izquierda) o más brillante (derecha).' }),
         K('sat.mezcla', 'Mezcla', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Saturación en paralelo.' }),
-        K('sat.salida', 'Salida', -12, 12, { fmt: fmt.db, step: 0.1, ayuda: 'Volumen de salida.' }))) });
+        K('sat.salida', 'Salida', -12, 12, { mas: true, fmt: fmt.db, step: 0.1, ayuda: 'Volumen de salida.' }))) });
     const dblCard = card({ id: 'dbl', title: 'Doblador', on: 'doblador.on', body: h('div', null,
-      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '10px' } }, 'Crea dos copias ligeramente desafinadas y retrasadas, a izquierda y derecha: voz más ancha y gorda.'),
+      h('div', { class: 'desc' }, 'Crea dos copias ligeramente desafinadas y retrasadas, a izquierda y derecha: voz más ancha y gorda.'),
       h('div', { class: 'grid' },
         K('doblador.cantidad', 'Cantidad', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Volumen de las copias.' }),
         K('doblador.ancho', 'Ancho', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Separación estéreo de las copias.' }),
-        K('doblador.variacion', 'Variación', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto se mueven en tiempo y afinación (más = más «coro»).' }))) });
+        K('doblador.variacion', 'Variación', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Cuánto se mueven en tiempo y afinación (más = más «coro»).' }))) });
     const riderCard = card({ id: 'rider', title: 'Vocal rider', on: 'rider.on', body: h('div', null,
-      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '10px' } }, 'Sube y baja tu voz sola, como un técnico moviendo el fader, para que siempre se entienda sobre la base.'),
+      h('div', { class: 'desc' }, 'Sube y baja tu voz sola, como un técnico moviendo el fader, para que siempre se entienda sobre la base.'),
       h('div', { class: 'lufsbig', id: 'riderVal' }, '+0,0 dB'),
       h('div', { class: 'grid' },
-        K('rider.objetivo', 'Objetivo', -6, 6, { fmt: fmt.db, step: 0.1, ayuda: 'El rider aprende cómo está tu voz frente a la base en tu mezcla y mantiene esa relación frase a frase. 0 dB = la de tu mezcla; más = un poco más alta.' }),
+        K('rider.objetivo', 'Objetivo', -6, 6, { mas: true, fmt: fmt.db, step: 0.1, ayuda: 'El rider aprende cómo está tu voz frente a la base en tu mezcla y mantiene esa relación frase a frase. 0 dB = la de tu mezcla; más = un poco más alta.' }),
         K('rider.rango', 'Rango', 0, 12, { fmt: fmt.db, step: 0.5, ayuda: 'Lo máximo que puede subir una frase floja. Las fuertes las baja como mucho un tercio de esto: no te quita la expresión.' }),
         K('rider.velocidad', 'Lentitud', 0.1, 5, { curve: 'log', fmt: fmt.s, ayuda: 'Más lento = más natural; más rápido = más igualado.' }))) });
     const dlyCard = card({ id: 'dly', title: 'Delay (eco)', chip: 'Delay', on: 'delay.on', body: h('div', null,
@@ -428,53 +440,70 @@
       when(h('div', { class: 'field', style: { marginBottom: '8px' } }, h('label', null, 'Figura'), SG('delay.division', [{ v: '1/2', label: '1/2' }, { v: '1/4', label: '1/4' }, { v: '1/4.', label: '1/4·' }, { v: '1/4t', label: '1/4T' }, { v: '1/8', label: '1/8' }, { v: '1/8.', label: '1/8·' }, { v: '1/8t', label: '1/8T' }, { v: '1/16', label: '1/16' }], { ayuda: '1/4 = negra, 1/8 = corchea, · = con puntillo, T = tresillo.' })), (P) => P.delay.sync),
       h('div', { class: 'grid' },
         K('delay.envio', 'Envío', -40, 12, { fmt: fmt.db0, step: 0.5, ayuda: 'Cantidad de eco. Va en paralelo: tu voz seca sigue igual y el eco se suma encima.' }),
-        when(K('delay.ms', 'Tiempo', 20, 2000, { curve: 'log', fmt: fmt.ms, ayuda: 'Tiempo del eco en milisegundos.' }), (P) => !P.delay.sync),
+        when(K('delay.ms', 'Tiempo', 20, 2000, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'Tiempo del eco en milisegundos.' }), (P) => !P.delay.sync),
         K('delay.feedback', 'Repeticiones', 0, 90, { fmt: fmt.pct, step: 1, ayuda: 'Cuántas veces se repite.' }),
         K('delay.ducking', 'Al cantar', 0, 100, { fmt: (v) => (v >= 99.5 ? '−∞ dB' : (v < 0.5 ? '0 dB' : 'hasta −' + num(-20 * Math.log10(1 - v / 100), 1) + ' dB')), step: 1, ayuda: 'Cuánto baja el eco mientras cantas (ducking). En los huecos suena con su «Envío» completo. 0 dB = igual en frases y huecos; más bajo = la voz limpia y el eco florece en las pausas.' }),
-        K('delay.hpf', 'Quita graves', 20, 2000, { curve: 'log', fmt: fmt.hz, ayuda: 'Filtra los graves del eco.' }),
-        K('delay.lpf', 'Quita agudos', 1000, 20000, { curve: 'log', fmt: fmt.hz, ayuda: 'Filtra los agudos del eco (más oscuro = más «analógico» y discreto).' }),
-        K('delay.mod', 'Modulación', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Ligero vaivén, como un eco de cinta.' }),
-        K('delay.ancho', 'Ancho', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Anchura estéreo del eco.' }))) });
+        K('delay.hpf', 'Quita graves', 20, 2000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Filtra los graves del eco.' }),
+        K('delay.lpf', 'Quita agudos', 1000, 20000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Filtra los agudos del eco (más oscuro = más «analógico» y discreto).' }),
+        K('delay.mod', 'Modulación', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Ligero vaivén, como un eco de cinta.' }),
+        K('delay.ancho', 'Ancho', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Anchura estéreo del eco.' }))) });
     const revCard = card({ id: 'rev', title: 'Reverb', on: 'reverb.on', body: h('div', null,
       h('div', { class: 'row', style: { marginBottom: '8px' } }, SG('reverb.tipo', [{ v: 'placa', label: 'Placa', ayuda: 'Placa: densa y brillante desde el primer instante. La reverb clásica de voz.' }, { v: 'sala', label: 'Sala', ayuda: 'Habitación: reflexiones tempranas y cola corta. Cercana.' }, { v: 'hall', label: 'Hall', ayuda: 'Gran sala de conciertos: amplia y envolvente.' }])),
       h('div', { class: 'grid' },
         K('reverb.envio', 'Envío', -40, 12, { fmt: fmt.db0, step: 0.5, ayuda: 'Cantidad de reverb. Va en paralelo: tu voz seca sigue igual y la reverb se suma encima.' }),
         K('reverb.decay', 'Duración', 0.3, 8, { curve: 'log', fmt: fmt.s, ayuda: 'Tiempo de reverberación (RT60): lo que tarda la cola en apagarse.' }),
-        K('reverb.predelay', 'Predelay', 0, 200, { curve: 1.5, fmt: fmt.ms, ayuda: 'Espera antes de la reverb: separa la voz de su cola y la deja delante.' }),
-        K('reverb.amort', 'Oscuridad', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto se apagan los agudos en la cola.' }),
-        K('reverb.hpf', 'Quita graves', 20, 1000, { curve: 'log', fmt: fmt.hz, ayuda: 'Filtra los graves de la reverb (la deja limpia). 250–400 Hz es lo típico en voz.' }),
-        K('reverb.lpf', 'Quita agudos', 2000, 20000, { curve: 'log', fmt: fmt.hz, ayuda: 'Filtra los agudos de la reverb (menos eses en la cola).' }),
-        K('reverb.ancho', 'Ancho', 0, 150, { fmt: fmt.pct, step: 1, ayuda: 'Anchura estéreo.' }),
-        K('reverb.mod', 'Modulación', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Movimiento interno que evita sonido metálico.' }),
+        K('reverb.predelay', 'Predelay', 0, 200, { mas: true, curve: 1.5, fmt: fmt.ms, ayuda: 'Espera antes de la reverb: separa la voz de su cola y la deja delante.' }),
+        K('reverb.amort', 'Oscuridad', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Cuánto se apagan los agudos en la cola.' }),
+        K('reverb.hpf', 'Quita graves', 20, 1000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Filtra los graves de la reverb (la deja limpia). 250–400 Hz es lo típico en voz.' }),
+        K('reverb.lpf', 'Quita agudos', 2000, 20000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Filtra los agudos de la reverb (menos eses en la cola).' }),
+        K('reverb.ancho', 'Ancho', 0, 150, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Anchura estéreo.' }),
+        K('reverb.mod', 'Modulación', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Movimiento interno que evita sonido metálico.' }),
         K('reverb.ducking', 'Al cantar', 0, 100, { fmt: (v) => (v >= 99.5 ? '−∞ dB' : (v < 0.5 ? '0 dB' : 'hasta −' + num(-20 * Math.log10(1 - v / 100), 1) + ' dB')), step: 1, ayuda: 'Cuánto baja la reverb mientras cantas (ducking). En los huecos suena con su «Envío» completo. 0 dB = igual en frases y huecos.' }))) });
     const mixCard = card({ id: 'mix', title: 'Voz y base', body: h('div', { class: 'grid' },
       K('voz.volumen', 'Voz', -30, 12, { fmt: fmt.db, step: 0.1, ayuda: 'Volumen de tu voz en la mezcla.' }),
-      K('voz.pan', 'Panorama', -100, 100, { fmt: fmt.pan, step: 1, ayuda: 'Posición izquierda-derecha de la voz. La principal va en el centro (C).' }),
+      K('voz.pan', 'Panorama', -100, 100, { mas: true, fmt: fmt.pan, step: 1, ayuda: 'Posición izquierda-derecha de la voz. La principal va en el centro (C).' }),
       K('base.volumen', 'Base', -30, 12, { fmt: fmt.db, step: 0.1, ayuda: 'Volumen de la base.' }),
       K('base.hueco', 'Hueco voz', 0, 9, { fmt: fmt.db, step: 0.1, ayuda: 'La base se aparta un poco en la zona de la voz SOLO cuando cantas y SOLO en el centro, donde va tu voz (lo de los lados queda entero). La voz se entiende sin subirla.' }),
-      K('base.huecoFreq', 'Zona', 500, 8000, { curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia del hueco. La mezcla automática la pone donde tu voz tiene más energía.' })) });
+      K('base.huecoFreq', 'Zona', 500, 8000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia del hueco. La mezcla automática la pone donde tu voz tiene más energía.' })) });
     const limCard = card({ id: 'lim', title: 'Limitador final', chip: 'Limitador', on: 'master.on', body: h('div', null,
-      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '10px' } }, 'Último paso: sube el volumen general sin que nada pase del techo, medido en pico real (true peak), como piden Spotify y compañía.'),
+      h('div', { class: 'desc' }, 'Último paso: sube el volumen general sin que nada pase del techo, medido en pico real (true peak), como piden Spotify y compañía.'),
       grMeter('gr-lim'),
       h('div', { class: 'grid sect' },
         K('master.ganancia', 'Ganancia', -24, 24, { fmt: fmt.db, step: 0.1, ayuda: 'Cuánto empujas la mezcla contra el limitador. Al exportar con «Volumen final» se ajusta solo.' }),
         K('master.techo', 'Techo', -6, 0, { fmt: (v) => num(v) + ' dBTP', step: 0.1, ayuda: 'Nivel máximo de pico real. −1 dBTP es lo recomendado para que no distorsione al convertir a MP3/AAC.' }),
-        K('master.liberacion', 'Liberación', 10, 1000, { curve: 'log', fmt: fmt.ms, ayuda: 'Lo que tarda en soltar.' }),
-        SW('master.autoRel', 'Auto', { ayuda: 'Liberación automática según la música (recomendado).' }))) });
+        K('master.liberacion', 'Liberación', 10, 1000, { mas: true, curve: 'log', fmt: fmt.ms, ayuda: 'Lo que tarda en soltar.' }),
+        MASI(SW('master.autoRel', 'Liberación auto', { ayuda: 'Liberación automática según la música (recomendado).' })))) });
     // tomas
     const tomasA = h('div', { class: 'list', id: 'tomasA' });
     const tomasCard = card({ id: 'tomas', title: 'Tomas', w2: false, body: h('div', null, tomasA, h('div', { class: 'row', style: { marginTop: '10px' } },
       h('button', { class: 'btn sm primary', onclick: () => abrirGrabacion() }, icon('rec'), 'Grabar toma'), h('button', { class: 'btn sm', onclick: () => elegirArchivo('voz') }, icon('mic'), 'Cargar voz'))) });
 
-    const chips = h('div', { class: 'modchips' });
-    const order = [tomasCard, corCard, gateCard, rzCard, eqCard, arCard, dsCard, c1, c2, satCard, svCard, dblCard, riderCard, dlyCard, revCard, mixCard, limCard];
-    for (const c of order.map((el) => CARDS.find((x) => x.el === el))) {
-      const ch = h('div', { class: 'chip', ayuda: 'Ir a ' + c.title }, h('span', { class: 'dot' }), c.title);
-      ch.addEventListener('click', () => { c.el.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.el.animate([{ boxShadow: '0 0 0 2px rgba(208,32,46,0.8)' }, { boxShadow: '0 0 0 0 transparent' }], 900); });
-      const u = c.upd; c.upd = () => { u(); ch.classList.toggle('on', c.on ? !!getP(S.params, c.on) : true); };
-      chips.appendChild(ch);
+    // ── por etapas, siguiendo el camino de la voz (24/11): cada etapa en su cuadrícula de tarjetas iguales ──
+    const ETAPAS = [
+      { id: 'voz', t: 'Voz', sub: 'Tomas y limpieza', cards: [tomasCard, corCard, gateCard, dsCard] },
+      { id: 'color', t: 'Color', sub: 'EQ y tono', cards: [eqCard, rzCard, arCard, svCard] },
+      { id: 'din', t: 'Dinámica', sub: 'Compresión', cards: [c1, c2, satCard, riderCard] },
+      { id: 'esp', t: 'Espacio', sub: 'Ancho, eco y reverb', cards: [dblCard, dlyCard, revCard] },
+      { id: 'mez', t: 'Mezcla', sub: 'Voz, base y máster', cards: [mixCard, limCard] },
+    ];
+    const nav = h('div', { class: 'etapas', role: 'tablist' });
+    const secciones = ETAPAS.map((e, n) => {
+      const leds = h('span', { class: 'leds' }, e.cards.map((el) => { const c = CARDS.find((x) => x.el === el); const d = h('i'); const u = c.upd; c.upd = () => { u(); d.classList.toggle('on', c.on ? !!getP(S.params, c.on) : true); }; return d; }));
+      e.btn = h('button', { class: 'etapa', role: 'tab', ayuda: e.sub, onclick: () => verEtapa(e.id) }, h('b', null, (n + 1) + ' · ' + e.t), h('small', null, e.sub), leds);
+      nav.appendChild(e.btn);
+      return e.sec = h('section', { class: 'seccion', 'data-e': e.id }, h('h2', { class: 'sectit' }, (n + 1) + ' · ' + e.t, h('small', null, e.sub)), h('div', { class: 'cards ' + (e.id === 'color' ? 'color' : 'n' + e.cards.length) }, e.cards));
+    });
+    const btnTodo = h('button', { class: 'btn sm ghost etapa-todo', ayuda: 'Ver todas las etapas a la vez, una debajo de otra (para pantallas grandes).', onclick: () => verEtapa(S.etapa === 'todo' ? (S.etapaAnt || 'voz') : 'todo') }, icon('list'), 'Ver todo');
+    nav.appendChild(btnTodo);
+    function verEtapa(id) {
+      if (id !== 'todo') S.etapaAnt = id; S.etapa = id; try { localStorage.setItem('voxlite.etapa', id); } catch (e) { /* sin almacenamiento */ }
+      for (const e of ETAPAS) { e.btn.classList.toggle('on', id === e.id); e.sec.classList.toggle('hidden', id !== 'todo' && id !== e.id); }
+      btnTodo.classList.toggle('on', id === 'todo'); adv.classList.toggle('todo', id === 'todo');
+      requestAnimationFrame(() => { dibujarEq(); dibujarCurvas(); });
     }
-    adv.append(top, chips, h('div', { class: 'cards' }, order));
+    adv.append(top, nav, h('div', { class: 'secciones' }, secciones));
+    let et0 = 'voz'; try { et0 = localStorage.getItem('voxlite.etapa') || 'voz'; } catch (e) { /* sin almacenamiento */ }
+    verEtapa(ETAPAS.some((e) => e.id === et0) || et0 === 'todo' ? et0 : 'voz');
     construirBandas();
     eqEventos();
   }
@@ -589,7 +618,7 @@
     });
     const up = () => { if (drag >= 0) { drag = -1; construirBandas(); } };
     eqCanvas.addEventListener('pointerup', up); eqCanvas.addEventListener('pointercancel', up);
-    eqCanvas.addEventListener('wheel', (e) => { const n = near(e); const i = n.best >= 0 ? n.best : bandSel; const b = S.params.eq.bandas[i]; if (b.tipo === 'pasaaltos' || b.tipo === 'pasabajos') return; e.preventDefault(); b.q = Math.round(D.clamp(b.q * Math.pow(1.1, -Math.sign(e.deltaY)), 0.1, 18) * 100) / 100; bandSel = i; push(); construirBandas(); }, { passive: false });
+    eqCanvas.addEventListener('wheel', (e) => { const n = near(e); if (n.best < 0) return; /* solo encima de un punto: si no, la página se desplaza */ const i = n.best; const b = S.params.eq.bandas[i]; if (b.tipo === 'pasaaltos' || b.tipo === 'pasabajos') return; e.preventDefault(); b.q = Math.round(D.clamp(b.q * Math.pow(1.1, -Math.sign(e.deltaY)), 0.1, 18) * 100) / 100; bandSel = i; push(); construirBandas(); }, { passive: false });
     eqCanvas.addEventListener('dblclick', (e) => { const n = near(e); if (n.best >= 0) { const b = S.params.eq.bandas[n.best]; b.on = !b.on; push(); construirBandas(); } });
   }
 
@@ -608,6 +637,15 @@
       g.strokeStyle = p.on ? '#d0202e' : '#6e5d58'; g.lineWidth = 2.2; g.shadowColor = 'rgba(208,32,46,0.6)'; g.shadowBlur = p.on ? 6 : 0; g.stroke(); g.shadowBlur = 0; g.lineWidth = 1;
       const s = D.compStatic(p);
       g.fillStyle = '#6e5d58'; g.font = '10px JetBrains Mono, monospace'; g.fillText('umbral ' + num(s.T) + ' dB · ' + (s.R >= 30 ? '∞' : num(s.R)) + ':1', 6, 14);
+      // estela y bola: dónde está trabajando ahora mismo (entrada → salida); se apaga con la voz en silencio
+      const hist = CINH[k] || [];
+      if (p.on && hist.length) {
+        hist.forEach((x, i) => { if (x < -60) return; const t = (i + 1) / hist.length, xx = Math.min(6, x); g.fillStyle = 'rgba(255,150,120,' + (0.08 + 0.35 * t * t) + ')'; g.beginPath(); g.arc(X(xx), Y(D.clamp(D.compTransfer(p, xx), -60, 6)), 2 + 1.5 * t, 0, Math.PI * 2); g.fill(); });
+        const x = hist[hist.length - 1];
+        if (x > -60) { const xx = Math.min(6, x), yy = D.clamp(D.compTransfer(p, xx), -60, 6), red = xx - yy;
+          if (red > 0.3) { g.strokeStyle = 'rgba(255,190,90,0.7)'; g.beginPath(); g.moveTo(X(xx), Y(xx)); g.lineTo(X(xx), Y(yy)); g.stroke(); } // lo que baja
+          g.fillStyle = '#fff'; g.shadowColor = '#ff5a4a'; g.shadowBlur = 10; g.beginPath(); g.arc(X(xx), Y(yy), 4.5, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0; }
+      }
     }
   }
 
@@ -659,7 +697,10 @@
     requestAnimationFrame(() => { fv.set(S.params.voz.volumen); fb.set(S.params.base.volumen); fm.set(S.params.master.ganancia); });
   }
   const pk = { voz: -90, base: -90, mL: -90, mR: -90, tp: -90 };
+  // gráfica del compresor en directo: últimos niveles de entrada (≈1,5 s) como estela sobre la curva (24/11)
+  const CINH = { comp1: [], comp2: [] };
   motor.onMeters = (m) => {
+    if (m.cin) { for (const [k, c] of [['comp1', 'c1'], ['comp2', 'c2']]) { const a = CINH[k]; a.push(m.cin[c]); if (a.length > 45) a.shift(); } if (S.modo === 'avanzado') dibujarCurvas(); }
     const fall = (old, nw) => (nw > old ? nw : old - 1.2);
     pk.voz = fall(pk.voz, m.voz); pk.base = fall(pk.base, m.base); pk.mL = fall(pk.mL, Math.max(m.mL, m.mR));
     if (m.mL > pk.tp || m.mR > pk.tp) pk.tp = Math.max(m.mL, m.mR);
@@ -1248,7 +1289,7 @@
       h('h3', null, '3 · Mezcla'),
       paso('m6', 'Elige estilo y escucha.', 'Al grabar se hace sola la <b>mezcla automática</b> (nivel, barro, resonancias, eses y volumen frente a la base). Cambia de estilo mientras suena. Los estilos de Áleran dejan tu voz <b>metida en la pista</b>, como en un disco, con los efectos floreciendo entre frases; casi todos llevan el <b>vocal rider</b>, que sube solo las frases que cantas más flojas.', 'lee «Lo que he ajustado»: te explica qué ha hecho con tu voz.'),
       paso('m7', 'Retoca a tu gusto.', '<b>Realce</b> (voz de radio: densa y siempre delante), voz delante, brillo, cuerpo, compresión, reverb, eco y <b>anchura</b>. Reverb y eco van en paralelo: tu voz seca no se toca, solo se suma más efecto. Doble clic en una perilla la deja como estaba.', 'si quieres mucho efecto pegado a la voz, en el modo avanzado baja el <b>ducking</b> del delay y de la reverb: el ducking aparta el efecto mientras cantas y lo deja sonar en los huecos.'),
-      paso('m8', 'Modo avanzado (opcional).', 'Todos los parámetros de estudio: Voz de móvil (corrector de micro), Realce vocal, Armónicos, Suavizador, EQ de 8 bandas con dinámica, de-esser, dos compresores (FET, óptico, VCA y moderno), saturación, doblador, vocal rider, delay, reverb y limitador. Pasa el ratón por cada control y abajo verás qué hace.', 'la barra «Reducción» de cada compresor: 3–6 dB en las frases fuertes es lo normal en voz.'),
+      paso('m8', 'Modo avanzado (opcional).', 'Ordenado por etapas, siguiendo el camino de tu voz: <b>1 Voz</b> (tomas y limpieza), <b>2 Color</b> (EQ y tono), <b>3 Dinámica</b> (compresión), <b>4 Espacio</b> (ancho, eco y reverb) y <b>5 Mezcla</b>. En cada tarjeta, lo importante va en perillas y lo fino en «Más ajustes». «Ver todo» enseña todas las etapas a la vez. Todos los parámetros de estudio: Voz de móvil (corrector de micro), Realce vocal, Armónicos, Suavizador, EQ de 8 bandas con dinámica, de-esser, dos compresores (FET, óptico, VCA y moderno), saturación, doblador, vocal rider, delay, reverb y limitador. Pasa el ratón por cada control y abajo verás qué hace.', 'la barra «Reducción» de cada compresor: 3–6 dB en las frases fuertes es lo normal en voz.'),
       h('h3', null, '4 · Exporta y comparte'),
       paso('m9', 'Exporta.', 'Botón <b>Exportar</b>: mezcla completa, solo tu voz con efectos o tu voz sin tocar; WAV o MP3; y el volumen final (Streaming −14 LUFS para Spotify/YouTube).', 'al terminar verás el volumen (LUFS) y el pico más alto. Con un «Volumen final» elegido, el pico nunca pasa de −1 dB.'),
       paso('m10', 'Guarda o comparte tu sonido.', '<b>Guardar preset</b> lo guarda en este navegador. <b>Copiar enlace</b> crea un enlace con tus ajustes (sin tu voz) para mandárselo a Áleran o a un compañero.'),
@@ -1286,6 +1327,8 @@
     ['g23', 'Estilos equilibrados', 'Prueba los 9 estilos con la misma toma. ¿La voz va metida en la pista (ni encima ni tapada)? ¿Cada estilo suena a lo que dice su nombre?'],
     ['g24', 'Voz de móvil', 'Graba con el móvil (o carga una toma de móvil). ¿La mezcla automática enciende «Voz de móvil» y lo explica? Apágalo y enciéndelo: ¿suena más a micro de estudio, con menos ruido y más agudos, sin cambiar quién eres?'],
     ['g25', 'Realce y brillo', 'En el avanzado, con la mezcla automática hecha, enciende y apaga el Realce. ¿La banda «Aire» de la EQ baja al encenderlo y vuelve al apagarlo (sin brillo de más)?'],
+    ['g26', 'Modo avanzado ordenado', 'Pasa por las 5 etapas en tu pantalla y en el móvil. ¿Las tarjetas encajan sin huecos? ¿Encuentras lo que buscas? Abre «Más ajustes» en alguna y prueba «Ver todo».'],
+    ['g27', 'Compresor en directo', 'Dale play y mira la gráfica de los compresores: ¿la bola recorre la curva y se ve cuánto comprime?'],
     ['g16', 'Tu oído', 'Compara una mezcla de VoxStudio Lite con la del VoxStudio de escritorio con la misma toma.'],
   ];
   function construirGuia() {

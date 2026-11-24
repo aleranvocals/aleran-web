@@ -137,7 +137,7 @@
     const end = () => { if (drag && o.onEnd) o.onEnd(value); drag = null; };
     svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
     svg.addEventListener('dblclick', () => { set(o.def, true); if (o.onEnd) o.onEnd(value); });
-    svg.addEventListener('wheel', (e) => { e.preventDefault(); const t = clamp01(m.to(value)) - Math.sign(e.deltaY) * (e.shiftKey ? 0.005 : 0.025); set(m.from(t), true); }, { passive: false });
+    // sin rueda del ratón: al bajar por la página no se mueven perillas sin querer (Áleran, 24/11)
     el.addEventListener('keydown', (e) => {
       const d = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 }[e.key];
       if (d) {

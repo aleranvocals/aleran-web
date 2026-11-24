@@ -1525,6 +1525,7 @@ function voxdspModule() {
       this.dsAfter = p.deesser.posicion !== 'antes';
       this.bypass = !!p.bypass;
     }
+    tomarCin() { const r = { c1: linToDb(this.pkC1 || 0), c2: linToDb(this.pkC2 || 0) }; this.pkC1 = this.pkC2 = 0; return r; }
     // vin: Float32Array|null (voz mono), bl/br: base, ol/or: salida, ov: voz procesada (opcional, análisis)
     process(vin, bl, br, ol, or, n, ov) {
       const sm = this.sm, a = this.aSm, b1 = 1 - a;
@@ -1545,7 +1546,9 @@ function voxdspModule() {
           v = this.eq.process(v);
           v = this.ar.process(v);
           if (!this.dsAfter) v = this.ds.process(v);
+          { const a1 = v < 0 ? -v : v; if (a1 > this.pkC1) this.pkC1 = a1; } // nivel que entra a cada compresor (gráfica en directo)
           v = this.c1.process(v);
+          { const a2 = v < 0 ? -v : v; if (a2 > this.pkC2) this.pkC2 = a2; }
           v = this.c2.process(v);
           if (this.dsAfter) v = this.ds.process(v);
           v = this.sat.process(v);
@@ -1603,7 +1606,7 @@ function voxdspModule() {
       const m = this.meters; this.meters = this.newMeters();
       return {
         entrada: linToDb(m.entrada), voz: linToDb(m.voz), base: linToDb(m.base), mL: linToDb(m.mL), mR: linToDb(m.mR),
-        gr: { corrector: this.cor.takeGr(), puerta: this.gate.takeGr(), realce: this.rz.takeGr(), suavizador: this.sv.takeGr(), deesser: this.ds.takeGr(), c1: this.c1.takeGr(), c2: this.c2.takeGr(), lim: this.lim.takeGr() },
+        cin: this.tomarCin(), gr: { corrector: this.cor.takeGr(), puerta: this.gate.takeGr(), realce: this.rz.takeGr(), suavizador: this.sv.takeGr(), deesser: this.ds.takeGr(), c1: this.c1.takeGr(), c2: this.c2.takeGr(), lim: this.lim.takeGr() },
         eqDin: this.eq.dynOut.slice(), rider: linToDb(this.rider.p.on ? dbToLin(this.rider.g) : 1),
         nota: this.ar.takeNota(), lufsM: this.lufs.momentary, lufsS: this.lufs.shortTerm,
       };

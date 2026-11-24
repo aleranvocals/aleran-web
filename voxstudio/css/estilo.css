@@ -325,3 +325,67 @@ option, optgroup { background: #241b1b; color: var(--text); }
   .content { padding-bottom: 80px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ───────── modo avanzado por etapas (24/11): tarjetas fijas, alineadas y con lo secundario plegado ───────── */
+.etapas { display: flex; gap: 8px; margin: 12px 0 14px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+.etapa { flex: 1 1 0; min-width: 150px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--stroke); background: linear-gradient(#211818, #191212); color: var(--dim); cursor: pointer; text-align: left; font: inherit; transition: border-color .15s, background .15s; }
+.etapa:hover { border-color: #5a3030; }
+.etapa b { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); }
+.etapa small { font-size: 11px; }
+.etapa .leds { display: flex; gap: 4px; margin-top: 5px; }
+.etapa .leds i { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); opacity: .5; }
+.etapa .leds i.on { background: var(--accent); opacity: 1; box-shadow: 0 0 6px rgba(208,32,46,0.7); }
+.etapa.on { border-color: var(--accent); background: linear-gradient(#3a1416, #231010); box-shadow: 0 0 0 1px rgba(208,32,46,0.25) inset; }
+.etapa-todo { flex: none; align-self: center; }
+.etapa-todo.on { color: var(--text); border-color: var(--accent); }
+.seccion + .seccion { margin-top: 20px; }
+.sectit { display: none; }
+.todo .sectit { display: flex; align-items: baseline; gap: 10px; margin: 4px 2px 10px; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; }
+.todo .sectit small { letter-spacing: 0; text-transform: none; color: var(--faint); font-size: 12px; font-weight: 400; }
+.cards { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-items: stretch; }
+.card { display: flex; flex-direction: column; }
+.card > .body { flex: 1; display: flex; flex-direction: column; }
+.card > .body > div { flex: 1; display: flex; flex-direction: column; }
+.card .desc { font-size: 12px; line-height: 1.45; color: var(--dim); margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card .desc:hover { -webkit-line-clamp: unset; }
+.card .grid { justify-content: space-evenly; }
+details.mas { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--stroke); }
+.card .grid:has(+ details.mas) { margin-bottom: 12px; }
+details.mas > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); user-select: none; }
+details.mas > summary::-webkit-details-marker { display: none; }
+details.mas > summary::before { content: '▸'; color: var(--accent); }
+details.mas[open] > summary::before { content: '▾'; }
+details.mas > summary:hover { color: var(--text); }
+.masgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-top: 10px; }
+.masgrid > .field, .masgrid > .row { grid-column: 1 / -1; }
+@media (max-width: 760px) {
+  .cards { grid-template-columns: 1fr; }
+  .card.w2 { grid-column: auto; }
+  .etapa { min-width: 128px; padding: 8px 10px; }
+  .masgrid { grid-template-columns: 1fr; }
+}
+/* columnas según cuántas tarjetas tiene cada etapa: nunca una tarjeta huérfana con un hueco al lado */
+.cards.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cards.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cards.n2 { grid-template-columns: repeat(2, minmax(0, 640px)); }
+.cards.color { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.cards.color > .w2 { grid-column: span 2; }
+@media (max-width: 1750px) {
+  .cards.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards.color { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cards.color > .w2 { grid-column: 1 / -1; }
+}
+@media (max-width: 1150px) {
+  .cards.n3, .cards.color { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards.n3 > :nth-child(3), .cards.color > :nth-child(4) { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .cards.n4, .cards.n3, .cards.n2, .cards.color { grid-template-columns: minmax(0, 1fr); }
+  .cards > * { grid-column: auto !important; }
+}
+@media (max-width: 760px) {
+  .etapa { min-width: 0; flex: 1 0 auto; padding: 8px 10px; }
+  .etapa small { display: none; }
+  .etapa b { letter-spacing: 0.08em; }
+}
