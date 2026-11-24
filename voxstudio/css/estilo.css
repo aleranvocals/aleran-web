@@ -397,11 +397,11 @@ details.mas > summary:hover { color: var(--text); }
 /* EQ apaisada: gráfica a la izquierda, bandas y mandos a la derecha (más ancha que alta) */
 @container (min-width: 620px) {
   .eqlay { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, 1fr); gap: 16px; align-items: start; }
-  .eqlay .canvasbox.eq { height: 260px; margin-bottom: 0; }
+  .eqlay .canvasbox.eq { height: 220px; margin-bottom: 0; }
   .eqside .grid { justify-content: space-around; }
 }
 /* compresores: curva y medidor a un lado, mandos al otro */
-@container (min-width: 540px) {
+@container (min-width: 370px) {
   .complay { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   .complay .compder > .sect:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 }
@@ -414,10 +414,36 @@ details.mas > summary:hover { color: var(--text); }
 .coromix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 4px 10px 10px 34px; margin-top: -4px; }
 @media (max-width: 760px) { .coromix { grid-template-columns: 1fr; padding-left: 10px; } }
 /* la lista de tomas no estira la fila: se desplaza por dentro */
-#tomasA { max-height: 320px; overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
+#tomasA { max-height: 240px; overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
 /* barra de abajo en el móvil: se parte en dos líneas (si no, ensanchaba toda la página y el móvil la alejaba) */
 @media (max-width: 720px) {
   .statusbar { flex-wrap: wrap; row-gap: 6px; }
   .statusbar .grow { flex: 1 1 100%; order: -1; }
   .statusbar > svg { display: none; }
+}
+/* «Voz y base»: su cuerpo es directamente la fila de perillas → en horizontal */
+.card > .body > div.grid { flex-direction: row; flex-wrap: wrap; justify-content: space-evenly; align-items: flex-start; flex: 0 0 auto; }
+/* (?) en la esquina de cada tarjeta con la explicación */
+.qwrap { position: relative; display: inline-flex; }
+.qbtn { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--strokeHi); background: #1c1414; color: var(--dim); font: 700 11px var(--mono); cursor: help; display: inline-grid; place-items: center; padding: 0; }
+.qbtn:hover, .qwrap:has(.qpop.on) .qbtn { color: #fff; border-color: var(--accent); }
+.qpop { display: none; position: absolute; right: -6px; top: 28px; width: 320px; max-width: min(320px, 86vw); z-index: 60; background: #1b1212; border: 1px solid #4a2a2a; border-radius: 10px; padding: 10px 12px; box-shadow: 0 10px 28px rgba(0,0,0,0.65); text-transform: none; letter-spacing: 0; }
+.qwrap:hover .qpop, .qpop.on { display: block; }
+.qpop .desc { display: block; -webkit-line-clamp: unset; margin: 0; font-size: 12px; line-height: 1.5; color: var(--text); }
+.qpop #corInfo { margin: 8px 0 0 !important; color: var(--dim); }
+.card:has(.qwrap:hover), .card:has(.qpop.on) { z-index: 50; }
+.card { position: relative; }
+
+/* compresores en dos columnas: la curva algo más baja para que la fila no crezca */
+@container (min-width: 370px) { .complay .canvasbox.tf { height: 120px; } }
+/* EQ apaisada compacta: el panel de la derecha no debe ser más alto que la gráfica */
+@container (min-width: 620px) {
+  .eqlay { grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr); }
+  .eqside .bandtabs { margin-bottom: 6px; }
+  .eqside .bandtabs button { height: 24px; min-width: 30px; padding: 0 6px; }
+  .eqside .seg button { padding: 4px 7px; font-size: 11px; }
+  .eqside .knob { width: 64px; }
+  .eqside .knob svg { width: 44px; height: 44px; }
+  .eqside .grid { gap: 6px 2px; }
+  .eqside .sect { margin-top: 6px; padding-top: 6px; }
 }

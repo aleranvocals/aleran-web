@@ -123,6 +123,7 @@
   function SG(path, options, o = {}) { const w = Seg(Object.assign({ options, value: val('p', path), onChange: (v) => cambio('p', path, v, o.after) }, o)); return bind('p', path, w).el; }
   function SLP(path, label, options, o = {}) { const w = Select(Object.assign({ label, options, value: val('p', path), onChange: (v) => cambio('p', path, v, o.after) }, o)); bind('p', path, w); return h('div', { class: 'field' }, h('label', null, label), w.el); }
   function SW(path, label, o = {}) { const w = Switch(Object.assign({ label, value: val('p', path), onChange: (v) => cambio('p', path, v, o.after) }, o)); return bind('p', path, w).el; }
+  document.addEventListener('click', (e) => { if (!e.target.closest || !e.target.closest('.qwrap')) document.querySelectorAll('.qpop.on').forEach((x) => x.classList.remove('on')); });
   function MASI(el) { el.classList.add('mas-item'); return el; } // a «Más ajustes»
   function when(el, fn) { VIS.push({ el, fn }); return el; }
   function refresh() {
@@ -281,8 +282,16 @@
       }
       o.body.appendChild(h('details', { class: 'mas' }, h('summary', null, 'Más ajustes'), grid));
     }
+    // las explicaciones largas no ocupan sitio: van a un (?) pequeño en la esquina (pasar el ratón o tocar) (24/11)
+    const descs = o.body ? [...o.body.querySelectorAll('.desc, #corInfo')] : [];
+    let q = null;
+    if (descs.length) {
+      const pop = h('div', { class: 'qpop' }, descs);
+      const btn = h('button', { class: 'qbtn', 'aria-label': '¿Qué hace ' + o.title + '?', ayuda: descs[0].textContent, onclick: (e) => { e.stopPropagation(); pop.classList.toggle('on'); } }, '?');
+      q = h('span', { class: 'qwrap' }, btn, pop);
+    }
     const el = h('div', { class: 'panel card' + (o.w2 ? ' w2' : ''), id: 'card-' + o.id },
-      h('div', { class: 'chead' }, h('h3', null, h('span', { class: 'led' }), o.title), o.extra || null, sw ? sw.el : null),
+      h('div', { class: 'chead' }, h('h3', null, h('span', { class: 'led' }), o.title), o.extra || null, q, sw ? sw.el : null),
       h('div', { class: 'body' }, o.body));
     const upd = () => el.classList.toggle('isOn', o.on ? !!getP(S.params, o.on) : true);
     CARDS.push({ id: o.id, title: o.chip || o.title, el, on: o.on, upd });
