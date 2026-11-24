@@ -1,0 +1,6 @@
+VoxStudio Lite · Áleran Vocals
+Motor de audio, interfaz y presets: © Áleran. Todos los derechos reservados.
+
+Componentes de terceros:
+· lamejs (vendor/lame.min.js), codificador MP3. Licencia LGPL 3.0. Código fuente: https://github.com/zhuker/lamejs (sin modificar).
+· Tipografías Inter, Cinzel y JetBrains Mono (assets/fonts/). Licencia SIL Open Font License 1.1: https://openfontlicense.org

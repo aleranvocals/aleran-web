@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/voxstudio",
+      "destination": "/voxstudio/",
+      "permanent": true
+    },
+    {
       "source": "/luopos",
       "destination": "/luopos/",
       "permanent": true
@@ -67,7 +72,7 @@
       ]
     },
     {
-      "source": "/((?!herramientas).*)",
+      "source": "/((?!herramientas|voxstudio).*)",
       "headers": [
         {
           "key": "Permissions-Policy",
@@ -81,6 +86,28 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(self), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/voxstudio/:path*",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(self), geolocation=()"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/voxstudio/(.*)\\.(js|css|ttf)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=2592000, immutable"
         }
       ]
     },
