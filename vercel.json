@@ -90,7 +90,7 @@
       ]
     },
     {
-      "source": "/voxstudio/:path*",
+      "source": "/voxstudio(.*)",
       "headers": [
         {
           "key": "Permissions-Policy",
