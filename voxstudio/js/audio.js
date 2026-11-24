@@ -31,6 +31,8 @@ function micSource(ctx, stream) {
       this.ctx = null; this.node = null; this.ready = null;
       this.base = null; this.baseNombre = '';
       this.toma = null; // { buffer, inicio }
+      this.coros = []; // [{ buffer, inicio, vol (dB), pan (−100…100) }]: tomas que suenan como coro (24/11)
+      this.srcC = [];
       this.params = D.defaultParams();
       this.playing = false; this.pos = 0; this.t0 = 0; this.p0 = 0;
       this.srcV = null; this.srcB = null;
@@ -51,7 +53,7 @@ function micSource(ctx, stream) {
         this.ctx = new AC({ latencyHint: 'interactive' });
         if (!this.ctx.audioWorklet) throw new Error('Este navegador no tiene AudioWorklet. Actualiza Chrome, Edge o Safari (14.1 o más nuevo).');
         await this.ctx.audioWorklet.addModule(getWorkletURL());
-        this.node = new AudioWorkletNode(this.ctx, 'vox-processor', { numberOfInputs: 2, numberOfOutputs: 2, outputChannelCount: [2, 1], processorOptions: { params: this.params } });
+        this.node = new AudioWorkletNode(this.ctx, 'vox-processor', { numberOfInputs: 3, numberOfOutputs: 2, outputChannelCount: [2, 1], processorOptions: { params: this.params } });
         this.node.connect(this.ctx.destination, 0);
         this.anVoz = this.ctx.createAnalyser(); this.anVoz.fftSize = 8192; this.anVoz.smoothingTimeConstant = 0.75;
         this.node.connect(this.anVoz, 1);
@@ -88,6 +90,7 @@ function micSource(ctx, stream) {
     duracion() {
       let d = this.base ? this.base.duration : 0;
       if (this.toma) d = Math.max(d, this.toma.inicio + this.toma.buffer.duration);
+      for (const c of this.coros) d = Math.max(d, c.inicio + c.buffer.duration);
       return d;
     }
 
@@ -106,10 +109,23 @@ function micSource(ctx, stream) {
         else if (pos - t.inicio < t.buffer.duration) s.start(when, pos - t.inicio);
         this.srcV = s;
       }
+      this.srcC = this.coros.map((c) => this._coroSrc(ctx, this.node, c, pos, when));
     }
+    // una toma de coro: fuente → volumen → panorama → entrada 3 del motor (el bus de coros)
+    _coroSrc(ctx, node, c, pos, when) {
+      const s = ctx.createBufferSource(); s.buffer = c.buffer;
+      const g = ctx.createGain(); g.gain.value = D.dbToLin(c.vol || 0);
+      const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : null; if (pn) pn.pan.value = D.clamp((c.pan || 0) / 100, -1, 1);
+      s.connect(g); if (pn) { g.connect(pn); pn.connect(node, 0, 2); } else g.connect(node, 0, 2);
+      if (pos < c.inicio) s.start(when + (c.inicio - pos), 0); else if (pos - c.inicio < c.buffer.duration) s.start(when, pos - c.inicio);
+      return { s, g, pn };
+    }
+    // volumen y panorama de los coros mientras suena (sin cortar)
+    mezclaCoros() { this.coros.forEach((c, i) => { const r = this.srcC[i]; if (!r) return; r.g.gain.setTargetAtTime(D.dbToLin(c.vol || 0), this.ctx.currentTime, 0.02); if (r.pn) r.pn.pan.setTargetAtTime(D.clamp((c.pan || 0) / 100, -1, 1), this.ctx.currentTime, 0.02); }); }
     _stopSources() {
-      for (const s of [this.srcB, this.srcV]) if (s) { try { s.stop(); } catch (e) { /* ya parado */ } s.disconnect(); }
-      this.srcB = this.srcV = null;
+      for (const s of [this.srcB, this.srcV, ...this.srcC.map((r) => r.s)]) if (s) { try { s.stop(); } catch (e) { /* ya parado */ } s.disconnect(); }
+      for (const r of this.srcC) { r.g.disconnect(); if (r.pn) r.pn.disconnect(); }
+      this.srcB = this.srcV = null; this.srcC = [];
     }
     async play(from) {
       await this.resume();
@@ -220,6 +236,8 @@ function micSource(ctx, stream) {
       }
       // la base suena por la cadena (el alumno oye la mezcla), sin su voz anterior
       if (this.base) { const s = ctx.createBufferSource(); s.buffer = this.base; s.connect(this.node, 0, 1); if (desde < this.base.duration) s.start(T0, desde); this.srcB = s; }
+      // grabando un coro: también suenan tu voz principal y los coros (por el bus de coros, que pasa por la misma cadena: la latencia no cambia)
+      if (opts.oirVoces) this.srcC = [...(this.toma ? [{ buffer: this.toma.buffer, inicio: this.toma.inicio, vol: 0, pan: 0 }] : []), ...this.coros].map((c) => this._coroSrc(ctx, this.node, c, desde, T0));
       this.playing = true; this.t0 = T0; this.p0 = desde; this._tick();
       this.rec = { stream, mic, recNode, mute, monitor, chunks, T0, desde, get first() { return first; }, get total() { return total; }, opts };
       return this.rec;
@@ -311,13 +329,14 @@ function micSource(ctx, stream) {
       const off = new OAC(2, len, sr);
       if (!off.audioWorklet) throw new Error('Este navegador es demasiado antiguo para exportar. Actualiza Safari (14.1 o más nuevo) o usa Chrome o Edge.');
       await off.audioWorklet.addModule(getWorkletURL());
-      const node = new AudioWorkletNode(off, 'vox-processor', { numberOfInputs: 2, numberOfOutputs: 2, outputChannelCount: [2, 1], processorOptions: { params: p, offline: true } });
+      const node = new AudioWorkletNode(off, 'vox-processor', { numberOfInputs: 3, numberOfOutputs: 2, outputChannelCount: [2, 1], processorOptions: { params: p, offline: true } });
       node.connect(off.destination, 0);
       if (this.base && t0 < this.base.duration) { const s = off.createBufferSource(); s.buffer = this.base; s.connect(node, 0, 1); s.start(0, t0); }
       if (this.toma) {
         const t = this.toma, s = off.createBufferSource(); s.buffer = t.buffer; s.connect(node, 0, 0);
         if (t.inicio >= t0) s.start(t.inicio - t0); else if (t0 - t.inicio < t.buffer.duration) s.start(0, t0 - t.inicio);
       }
+      if (!o.sinCoros) for (const c of this.coros) this._coroSrc(off, node, c, t0, 0); // la mezcla automática mide solo la principal
       // progreso: el render se detiene cada pocos segundos para avisar
       if (o.onProgress && off.suspend) {
         const step = Math.max(2, dur / 25);

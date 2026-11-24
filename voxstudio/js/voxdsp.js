@@ -1374,6 +1374,90 @@ function voxdspModule() {
   }
   const BQ_ID = { b0: 1, b1: 0, b2: 0, a1: 0, a2: 0 };
 
+  // ───────────────────────── Coros (24/11) ─────────────────────────
+  // Bus estéreo con la suma de las tomas marcadas como «coro» (cada una ya llega con su volumen y panorama).
+  // Cadena de coro SIN latencia: corte de graves, brillo, compresión suave enlazada, ancho estéreo y volumen.
+  // Se retrasa lo mismo que la cadena de la voz principal para que coros y principal vayan juntos.
+  class CoroBus {
+    constructor(fs) {
+      this.fs = fs; this.hpL = []; this.hpR = []; this.shL = new Biquad(); this.shR = new Biquad();
+      this.dL = new DelayLine(8); this.dR = new DelayLine(8); this.lat = 0; this.env = 0; this.g = 0; this.on = false; this.pk = 0; this.fSet = -1;
+      this.aEnv = coefFor(0.01, fs); this.aAtt = coefFor(0.005, fs); this.aRel = coefFor(0.12, fs);
+      this.aS = coefFor(0.015, fs); this.vC = 0; this.vT = 0; this.sC = 1.12; this.sT = 1.12; this.iC = 1; this.iT = 1;
+    }
+    set(p, lat, inG) {
+      const fs = this.fs; this.on = !!p.on;
+      if (lat !== this.lat) { this.lat = lat; this.dL = new DelayLine(lat + 4); this.dR = new DelayLine(lat + 4); }
+      const f = clamp(num0(p.corteGraves, 160), 20, 1000);
+      if (f !== this.fSet) { this.fSet = f; const st = butterworthStages('hp', f, 12, fs); if (this.hpL.length === st.length) st.forEach((c, i) => { this.hpL[i].set(c); this.hpR[i].set(c); }); else { this.hpL = st.map((c) => new Biquad(c)); this.hpR = st.map((c) => new Biquad(c)); } } // sin recrear: sin clic al mover el mando
+      const c = design('highshelf', 7000, 0.7, clamp(num0(p.brillo, 0), -12, 12), fs); this.shL.set(c); this.shR.set(c);
+      this.comp = clamp(num0(p.compresion, 50), 0, 100) / 100; this.ratio = 1 + 3 * this.comp; this.mk = 4 * this.comp;
+      this.sT = clamp(num0(p.ancho, 70), 0, 100) / 100 * 1.3; // 100 % = algo más abierto que el original, sin meter fase invertida al otro lado
+      this.vT = this.on ? dbToLin(clamp(num0(p.volumen, -3), -40, 12)) : 0; // volumen y encendido se mueven suaves (sin «zipper» ni clic)
+      this.iT = dbToLin(clamp(num0(inG, 0), -24, 36)); // la misma ganancia de entrada que la principal (si no, con una toma de móvil los coros quedan muy bajos)
+      this.rev = dbToLin(clamp(num0(p.reverb, 4), -24, 12)); this.eco = dbToLin(clamp(num0(p.eco, 0), -24, 12));
+    }
+    // l, r: suma de coros (sin procesar). out = [L, R, mono para los envíos]
+    process(l, r, out) {
+      this.dL.write(l); this.dR.write(r);
+      let L = this.dL.read(this.lat), R = this.dR.read(this.lat);
+      const a = this.aS; this.vC = a * this.vC + (1 - a) * this.vT; this.sC = a * this.sC + (1 - a) * this.sT; this.iC = a * this.iC + (1 - a) * this.iT;
+      if (this.vT === 0 && this.vC < 1e-5) { this.vC = 0; out[0] = out[1] = out[2] = 0; return; }
+      L *= this.iC; R *= this.iC;
+      for (const b of this.hpL) L = b.process(L); for (const b of this.hpR) R = b.process(R);
+      L = this.shL.process(L); R = this.shR.process(R);
+      if (this.comp > 0) {
+        const m = 0.5 * (L + R); this.env = this.aEnv * this.env + (1 - this.aEnv) * m * m;
+        const d = 10 * Math.log10(this.env + 1e-20) + 3, over = d - (-26), t = (over > 0 ? -over * (1 - 1 / this.ratio) : 0) + this.mk;
+        const a = t < this.g ? this.aAtt : this.aRel; this.g = a * this.g + (1 - a) * t;
+        const gl = dbToLin(this.g); L *= gl; R *= gl;
+      }
+      const M = 0.5 * (L + R), S = 0.5 * (L - R) * this.sC;
+      L = (M + S) * this.vC; R = (M - S) * this.vC;
+      const pk = Math.max(Math.abs(L), Math.abs(R)); if (pk > this.pk) this.pk = pk;
+      out[0] = L; out[1] = R; out[2] = M * this.vC;
+    }
+  }
+
+  // ───────────────────────── Pista: EQ y pegamento (24/11) ─────────────────────────
+  // La base también se puede retocar: cortes, graves, medios y agudos, y una compresión suave enlazada («pegamento»). Sin latencia.
+  class PistaEQ {
+    constructor(fs) { this.fs = fs; this.fL = []; this.fR = []; this.env = 0; this.g = 0; this.on = false; this.w = 0; this.aW = coefFor(0.015, fs); this.aEnv = coefFor(0.02, fs); this.aAtt = coefFor(0.01, fs); this.aRel = coefFor(0.15, fs); this.clave = ''; this.grMin = 0; }
+    set(p) {
+      const fs = this.fs; this.on = !!p.on;
+      const hp = clamp(num0(p.corteGraves, 20), 20, 500), lp = clamp(num0(p.corteAgudos, 20000), 2000, 20000);
+      const gG = clamp(num0(p.graves, 0), -12, 12), gM = clamp(num0(p.medios, 0), -12, 12), fM = clamp(num0(p.medFreq, 1000), 200, 5000), gA = clamp(num0(p.agudos, 0), -12, 12);
+      const clave = [hp, lp, gG, gM, fM, gA].join(',');
+      if (clave !== this.clave) {
+        this.clave = clave; const st = []; // siempre las mismas 5 etapas (las apagadas son planas): al mover un mando no se recrea nada (sin clics)
+        st.push(hp > 21 ? butterworthStages('hp', hp, 12, fs)[0] : BQ_ID);
+        st.push(lp < 19999 && lp < fs * 0.45 ? butterworthStages('lp', lp, 12, fs)[0] : BQ_ID);
+        st.push(gG ? design('lowshelf', 120, 0.7, gG, fs) : BQ_ID);
+        st.push(gM ? design('peak', fM, 0.8, gM, fs) : BQ_ID);
+        st.push(gA ? design('highshelf', 8000, 0.7, gA, fs) : BQ_ID);
+        const viejos = this.fL.length === st.length;
+        if (viejos) st.forEach((c, i) => { this.fL[i].set(c); this.fR[i].set(c); });
+        else { this.fL = st.map((c) => new Biquad(c)); this.fR = st.map((c) => new Biquad(c)); }
+      }
+      this.peg = clamp(num0(p.pegamento, 0), 0, 100) / 100; this.ratio = 1 + 2 * this.peg; this.mk = 2 * this.peg;
+    }
+    process(l, r, out) {
+      const tgt = this.on ? 1 : 0; this.w = this.aW * this.w + (1 - this.aW) * tgt; if (Math.abs(this.w - tgt) < 1e-4) this.w = tgt;
+      if (this.w === 0) { out[0] = l; out[1] = r; return; }
+      let L = l, R = r;
+      for (let i = 0; i < this.fL.length; i++) { L = this.fL[i].process(L); R = this.fR[i].process(R); }
+      if (this.peg > 0 || this.g !== 0) { // al bajar el pegamento a 0, la ganancia vuelve suave a 0 dB
+        const m = 0.5 * (L + R); this.env = this.aEnv * this.env + (1 - this.aEnv) * m * m;
+        const d = 10 * Math.log10(this.env + 1e-20) + 3, over = d - (-20), t = this.peg > 0 ? (over > 0 ? -over * (1 - 1 / this.ratio) : 0) + this.mk : 0;
+        if (this.peg === 0 && Math.abs(this.g) < 0.01) this.g = 0;
+        const a = t < this.g ? this.aAtt : this.aRel; this.g = a * this.g + (1 - a) * t; if (this.g - this.mk < this.grMin) this.grMin = this.g - this.mk;
+        const gl = dbToLin(this.g); L *= gl; R *= gl;
+      }
+      out[0] = this.w * L + (1 - this.w) * l; out[1] = this.w * R + (1 - this.w) * r;
+    }
+    takeGr() { const g = this.grMin; this.grMin = 0; return g; }
+  }
+
   // ───────────────────────── parámetros por defecto ─────────────────────────
   function defaultParams() {
     return {
@@ -1406,6 +1490,8 @@ function voxdspModule() {
       reverb: { on: true, tipo: 'placa', envio: -16, decay: 1.8, predelay: 30, amort: 45, hpf: 300, lpf: 8000, ancho: 100, mod: 50, ducking: 25 },
       voz: { volumen: 0, pan: 0, mute: false, solo: false },
       base: { volumen: 0, hueco: 2, huecoFreq: 2500, mute: false },
+      pista: { on: false, graves: 0, medios: 0, medFreq: 1000, agudos: 0, corteGraves: 20, corteAgudos: 20000, pegamento: 0 },
+      coros: { on: true, volumen: -3, ancho: 70, reverb: 4, eco: 0, corteGraves: 160, brillo: -1, compresion: 50 },
       master: { on: true, techo: -1, ganancia: 0, liberacion: 120, autoRel: true },
       bypass: false,
       bpm: 120,
@@ -1443,6 +1529,8 @@ function voxdspModule() {
     const bo = (o, k) => { o[k] = !!o[k]; };
     n(p.entrada, 'ganancia', -24, 36); bo(p.entrada, 'fase');
     const L = p.limpieza; bo(L, 'on'); n(L, 'umbral', -80, -20); n(L, 'rango', 0, 40); n(L, 'ataque', 0.1, 50); n(L, 'relajacion', 10, 2000);
+    const PI = p.pista; bo(PI, 'on'); n(PI, 'graves', -12, 12); n(PI, 'medios', -12, 12); n(PI, 'medFreq', 200, 5000); n(PI, 'agudos', -12, 12); n(PI, 'corteGraves', 20, 500); n(PI, 'corteAgudos', 2000, 20000); n(PI, 'pegamento', 0, 100);
+    const CR = p.coros; bo(CR, 'on'); n(CR, 'volumen', -40, 12); n(CR, 'ancho', 0, 100); n(CR, 'reverb', -24, 12); n(CR, 'eco', -24, 12); n(CR, 'corteGraves', 20, 1000); n(CR, 'brillo', -12, 12); n(CR, 'compresion', 0, 100);
     const CO = p.corrector; bo(CO, 'on'); n(CO, 'cantidad', 0, 100); n(CO, 'ruido', 0, 100); n(CO, 'brillo', 0, 100); n(CO, 'corte', 0, 24000);
     CO.curva = Array.from({ length: 13 }, (_, i) => clamp(Array.isArray(CO.curva) && isFinite(CO.curva[i]) ? +CO.curva[i] : 0, -12, 12));
     CO.ruidoBandas = Array.from({ length: 4 }, (_, i) => clamp(Array.isArray(CO.ruidoBandas) && isFinite(CO.ruidoBandas[i]) ? +CO.ruidoBandas[i] : -200, -200, 0));
@@ -1486,7 +1574,7 @@ function voxdspModule() {
   class VoxEngine {
     constructor(fs) {
       this.fs = fs;
-      this.gate = new Gate(fs); this.cor = new Corrector(fs); this.rz = new Realce(fs); this.ar = new Armonicos(fs); this.sv = new Suavizador(fs); this.eq = new Equalizer(fs); this.ds = new DeEsser(fs);
+      this.gate = new Gate(fs); this.cor = new Corrector(fs); this.coro = new CoroBus(fs); this.pista = new PistaEQ(fs); this.tmpC = [0, 0, 0]; this.tmpP = [0, 0]; this.rz = new Realce(fs); this.ar = new Armonicos(fs); this.sv = new Suavizador(fs); this.eq = new Equalizer(fs); this.ds = new DeEsser(fs);
       this.c1 = new Compressor(fs); this.c2 = new Compressor(fs); this.sat = new Saturator(fs);
       this.rider = new Rider(fs); this.dbl = new Doubler(fs); this.dly = new StereoDelay(fs); this.rev = new Reverb(fs);
       this.lim = new Limiter(fs); this.lufs = new LufsMeter(fs, 2);
@@ -1505,7 +1593,7 @@ function voxdspModule() {
     setParams(p) {
       p = prepararParams(p);
       this.p = p; const fs = this.fs;
-      this.cor.set(p.corrector, p.entrada.ganancia); this.gate.set(p.limpieza); this.rz.set(p.realce); this.ar.set(p.armonicos); this.sv.set(p.suavizador); this.eq.set(p.eq); this.ds.set(p.deesser);
+      this.cor.set(p.corrector, p.entrada.ganancia); this.coro.set(p.coros, this.vLat, p.entrada.ganancia); this.pista.set(p.pista); this.gate.set(p.limpieza); this.rz.set(p.realce); this.ar.set(p.armonicos); this.sv.set(p.suavizador); this.eq.set(p.eq); this.ds.set(p.deesser);
       this.c1.set(p.comp1); this.c2.set(p.comp2); this.sat.set(p.sat);
       this.rider.set(p.rider); this.dbl.set(p.doblador); this.dly.set(p.delay, p.bpm); this.rev.set(p.reverb);
       this.lim.set(p.master);
@@ -1525,9 +1613,10 @@ function voxdspModule() {
       this.dsAfter = p.deesser.posicion !== 'antes';
       this.bypass = !!p.bypass;
     }
+    tomarPkCoros() { const v = linToDb(this.coro.pk); this.coro.pk = 0; return v; }
     tomarCin() { const r = { c1: linToDb(this.pkC1 || 0), c2: linToDb(this.pkC2 || 0) }; this.pkC1 = this.pkC2 = 0; return r; }
     // vin: Float32Array|null (voz mono), bl/br: base, ol/or: salida, ov: voz procesada (opcional, análisis)
-    process(vin, bl, br, ol, or, n, ov) {
+    process(vin, bl, br, ol, or, n, ov, cl, cr) {
       const sm = this.sm, a = this.aSm, b1 = 1 - a;
       const t2 = this.tmp2, td = this.tmpD, tr = this.tmpR, tl = this.tmpL;
       let pkV = 0, pkB = 0, pkL = 0, pkR = 0, pkIn = 0;
@@ -1556,7 +1645,8 @@ function voxdspModule() {
         }
         if (this.bypass) v = vSeca; // sin efectos, con el mismo retardo para comparar
         // base retrasada para que coincida con la voz
-        const bL0 = (bl ? bl[i] : 0) + this.dn, bR0 = (br ? br[i] : bL0) + this.dn;
+        let bL0 = (bl ? bl[i] : 0) + this.dn, bR0 = (br ? br[i] : bL0) + this.dn;
+        if (this.pista.on || this.pista.w > 0) { this.pista.process(bL0, bR0, this.tmpP); bL0 = this.tmpP[0]; bR0 = this.tmpP[1]; } // EQ y pegamento de la pista
         this.bDL.write(bL0); this.bDR.write(bR0);
         let bL = this.bDL.read(this.vLat), bR = this.bDR.read(this.vLat);
         if (!this.bypass) v *= this.rider.gain(v, (bL + bR) * 0.5);
@@ -1583,11 +1673,13 @@ function voxdspModule() {
         const vv = v * sm.voz;
         if (ov) ov[i] = vv;
         let vL = vv * sm.panL * Math.SQRT1_2, vR = vv * sm.panR * Math.SQRT1_2;
+        // coros: su bus, alineado con la principal; se suman a la voz y mandan a la misma reverb y eco (con su propio extra)
+        let cm = 0; { const tc = this.tmpC; this.coro.process((cl ? cl[i] : 0) + this.dn, (cr ? cr[i] : cl ? cl[i] : 0) + this.dn, tc); vL += tc[0]; vR += tc[1]; cm = tc[2]; } // siempre: sin coros entra silencio y el retardo se vacía
         if (!this.bypass) {
           this.dbl.process(vv, t2); vL += t2[0]; vR += t2[1];
           sm.dly = a * sm.dly + b1 * this.tDly; sm.rev = a * sm.rev + b1 * this.tRev;
-          this.dly.process(vv * sm.dly, this.vAct, td);
-          this.rev.process(vv * sm.rev, this.vAct, tr);
+          this.dly.process((vv + cm * this.coro.eco) * sm.dly, this.vAct, td);
+          this.rev.process((vv + cm * this.coro.rev) * sm.rev, this.vAct, tr);
           vL += td[0] + tr[0]; vR += td[1] + tr[1];
         }
         if (av > pkV) pkV = av;
@@ -1606,7 +1698,7 @@ function voxdspModule() {
       const m = this.meters; this.meters = this.newMeters();
       return {
         entrada: linToDb(m.entrada), voz: linToDb(m.voz), base: linToDb(m.base), mL: linToDb(m.mL), mR: linToDb(m.mR),
-        cin: this.tomarCin(), gr: { corrector: this.cor.takeGr(), puerta: this.gate.takeGr(), realce: this.rz.takeGr(), suavizador: this.sv.takeGr(), deesser: this.ds.takeGr(), c1: this.c1.takeGr(), c2: this.c2.takeGr(), lim: this.lim.takeGr() },
+        cin: this.tomarCin(), coros: this.tomarPkCoros(), gr: { pista: this.pista.takeGr(), corrector: this.cor.takeGr(), puerta: this.gate.takeGr(), realce: this.rz.takeGr(), suavizador: this.sv.takeGr(), deesser: this.ds.takeGr(), c1: this.c1.takeGr(), c2: this.c2.takeGr(), lim: this.lim.takeGr() },
         eqDin: this.eq.dynOut.slice(), rider: linToDb(this.rider.p.on ? dbToLin(this.rider.g) : 1),
         nota: this.ar.takeNota(), lufsM: this.lufs.momentary, lufsS: this.lufs.shortTerm,
       };
@@ -1616,7 +1708,7 @@ function voxdspModule() {
   const api = {
     dbToLin, linToDb, clamp, design, biquadMag, Biquad, butterworthStages, bandStages, eqResponseDb, DelayLine,
     Upsampler4, Downsampler4, OS_H, kWeighting, LufsMeter, truePeak, analyzeLoudness, gainComputer, compStatic, compTransfer, FET_TABLE,
-    Compressor, Gate, Corrector, Realce, FFT, Suavizador, Armonicos, NOTAS, notaHz, Equalizer, DeEsser, Saturator, Doubler, StereoDelay, PlateReverb, FdnReverb, Reverb, Limiter, Rider,
+    Compressor, Gate, Corrector, CoroBus, PistaEQ, Realce, FFT, Suavizador, Armonicos, NOTAS, notaHz, Equalizer, DeEsser, Saturator, Doubler, StereoDelay, PlateReverb, FdnReverb, Reverb, Limiter, Rider,
     VoxEngine, defaultParams, mergeParams, validarParams, prepararParams, DIVISIONES, delaySeconds,
   };
 
@@ -1643,10 +1735,11 @@ function voxdspModule() {
       process(inputs, outputs) {
         const vi = inputs[0] && inputs[0].length ? inputs[0][0] : null;
         const bi = inputs[1] && inputs[1].length ? inputs[1] : null;
+        const ci = inputs[2] && inputs[2].length ? inputs[2] : null; // coros (estéreo)
         const out = outputs[0];
         const ov = outputs[1] && outputs[1][0] ? outputs[1][0] : null;
         const n = out[0].length;
-        this.engine.process(vi, bi ? bi[0] : null, bi ? (bi[1] || bi[0]) : null, out[0], out[1] || out[0], n, ov);
+        this.engine.process(vi, bi ? bi[0] : null, bi ? (bi[1] || bi[0]) : null, out[0], out[1] || out[0], n, ov, ci ? ci[0] : null, ci ? (ci[1] || ci[0]) : null);
         // red de seguridad: si algo saliera no finito, se reinicia el motor y se manda silencio
         let bad = false; for (let i = 0; i < n; i += 8) if (!isFinite(out[0][i]) || !isFinite(out[out.length - 1][i])) { bad = true; break; }
         if (bad) {

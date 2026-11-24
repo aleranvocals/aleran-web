@@ -231,7 +231,7 @@
       const durMax = 45;
       const ini = Math.max(0, t.inicio + act[0].i / sr - 0.5), fin = Math.min(motor.duracion(), ini + durMax); // desde que empiezas a cantar
       p.voz.volumen = 0; p.base.volumen = 0; // se parte de cero: el resultado no depende de ajustes anteriores
-      const vox = await motor.render({ params: p, modo: 'voz', desde: ini, hasta: fin });
+      const vox = await motor.render({ params: p, modo: 'voz', desde: ini, hasta: fin, sinCoros: true });
       const a = Math.floor(ini * sr), b = Math.floor(fin * sr), nV = b - a;
       const lv = D.analyzeLoudness([vox[0].subarray(0, nV), vox[1].subarray(0, nV)], sr).integrado;
       const bl = motor.base.getChannelData(0), br = motor.base.numberOfChannels > 1 ? motor.base.getChannelData(1) : bl;

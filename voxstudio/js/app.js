@@ -180,8 +180,18 @@
   const content = h('div', { class: 'content' });
   const sidebar = h('div', { class: 'sidebar' });
   const main = h('div', { class: 'main' }, content, sidebar);
+  // tamaño de la interfaz (24/11): «Auto» se ajusta al ancho; o a mano 80–110 %. Se recuerda en cada navegador.
+  const TAMS = [{ v: 'auto', label: 'Tamaño: auto' }, { v: '0.8', label: 'Tamaño: 80 %' }, { v: '0.9', label: 'Tamaño: 90 %' }, { v: '1', label: 'Tamaño: 100 %' }, { v: '1.1', label: 'Tamaño: 110 %' }];
+  let tam = 'auto'; try { tam = localStorage.getItem('voxlite.tamano') || 'auto'; } catch (e) { /* sin almacenamiento */ }
+  function aplicarTam() {
+    const safari = /^((?!chrome|chromium|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent); // Safari trata el zoom distinto: en «Auto» no se toca
+    const w = window.innerWidth, z = tam === 'auto' ? (!safari && w >= 1000 && w < 1280 ? 0.9 : 1) : D.clamp(+tam || 1, 0.7, 1.3);
+    document.documentElement.style.zoom = z === 1 ? '' : String(z);
+  }
+  const tamSel = Select({ value: tam, options: TAMS, ayuda: 'Tamaño de toda la interfaz. «Auto» la ajusta a tu pantalla; si en un portátil pequeño no te cabe, prueba 80 o 90 %.', onChange: (v) => { tam = v; try { localStorage.setItem('voxlite.tamano', v); } catch (e) { /* sin almacenamiento */ } aplicarTam(); requestAnimationFrame(() => { dibujarEq(); dibujarCurvas(); }); } });
+  tamSel.el.classList.add('tamsel'); aplicarTam(); window.addEventListener('resize', () => { if (tam === 'auto') { aplicarTam(); requestAnimationFrame(() => { dibujarEq(); dibujarCurvas(); }); } });
   const statusbar = h('div', { class: 'statusbar' }, icon('help'), status, h('span', { class: 'marca' }, 'Áleran Vocals · VoxStudio Lite v' + VERSION),
-    h('button', { class: 'btn sm ghost', onclick: () => acercaDe() }, 'Acerca de'));
+    tamSel.el, h('button', { class: 'btn sm ghost', onclick: () => acercaDe() }, 'Acerca de'));
   app.append(topbar, subbar, h('div'), main, statusbar);
   status.textContent = AYUDA_DEF; UI.bindHelp(status, AYUDA_DEF);
   [...topbar.querySelectorAll('svg')].forEach((s) => s.style.pointerEvents = 'none');
@@ -238,7 +248,7 @@
       h('div', { class: 'phead' }, h('div', { class: 'stepnum', id: 'st3' }, '3'), h('div', null, h('h2', null, 'Exporta'), h('div', { class: 'sub' }, 'Tu canción terminada, lista para escuchar o subir.'))),
       h('div', { class: 'field' }, h('label', null, 'Volumen final'), objSelS.el),
       h('button', { class: 'btn primary lg block', onclick: () => abrirExportar() }, icon('download'), 'Exportar mi canción'),
-      h('div', { class: 'tip' }, 'En la ventana de exportar eliges formato (WAV o MP3) y qué exportar: la mezcla completa, solo tu voz con efectos o tu voz sin tocar.'),
+      h('div', { class: 'tip' }, 'En la ventana de exportar eliges formato (WAV o MP3) y qué exportar: la mezcla completa, solo tus voces con efectos (principal y coros, sin la base) o tu voz sin tocar.'),
       expRes,
       h('div', { class: 'caps', style: { marginTop: '10px' } }, 'Comparte tu sonido'),
       h('div', { class: 'row' },
@@ -338,6 +348,7 @@
         MASI(SW(p('autoGan'), 'Ganancia auto', { ayuda: 'Compensa sola el volumen que quita la compresión, para que al comprimir más no suene más flojo (y no te engañe el oído).' })),
         K(p('mezcla'), 'Mezcla', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Compresión en paralelo («New York»): mezcla la voz comprimida con la original. 100 % = todo comprimido.' }),
         when(K(p('scHpf'), 'Filtro detector', 0, 300, { mas: true, fmt: (v) => (v < 21 ? 'apagado' : Math.round(v) + ' Hz'), step: 1, ayuda: 'El compresor ignora los graves por debajo de esta frecuencia (no se dispara con golpes de micro o notas graves).' }), (P) => P[k].tipo !== 'optico')));
+    { const kids = [...body.children]; body.replaceChildren(h('div', { class: 'complay' }, h('div', { class: 'compizq' }, kids.slice(0, 3)), h('div', { class: 'compder' }, kids.slice(3)))); } // curva a un lado, mandos al otro
     CURVAS.push({ k, tf });
     return card({ id: k, title, on: p('on'), body, w2: false });
   }
@@ -362,7 +373,7 @@
     REG.push({ src: 'p', path: 'bypass', w: { set: (v) => abBtns.by.classList.toggle('on', !!v) } });
 
     // EQ
-    const eqCard = card({ id: 'eq', title: 'EQ paramétrica', chip: 'EQ', on: 'eq.on', w2: true, body: h('div', null, eqBox, bandTabs, bandPanel) });
+    const eqCard = card({ id: 'eq', title: 'EQ paramétrica', chip: 'EQ', on: 'eq.on', w2: true, body: h('div', null, h('div', { class: 'eqlay' }, eqBox, h('div', { class: 'eqside' }, bandTabs, bandPanel))) }); // apaisada: gráfica a la izquierda, controles a la derecha
     // limpieza
     const gateCard = card({ id: 'gate', title: 'Limpieza', on: 'limpieza.on', body: h('div', null,
       h('div', { class: 'desc' }, 'Baja el ruido de fondo entre frases (ordenador, ventilador, respiraciones flojas).'),
@@ -465,6 +476,26 @@
       K('base.volumen', 'Base', -30, 12, { fmt: fmt.db, step: 0.1, ayuda: 'Volumen de la base.' }),
       K('base.hueco', 'Hueco voz', 0, 9, { fmt: fmt.db, step: 0.1, ayuda: 'La base se aparta un poco en la zona de la voz SOLO cuando cantas y SOLO en el centro, donde va tu voz (lo de los lados queda entero). La voz se entiende sin subirla.' }),
       K('base.huecoFreq', 'Zona', 500, 8000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Frecuencia del hueco. La mezcla automática la pone donde tu voz tiene más energía.' })) });
+    const coroCard = card({ id: 'coros', title: 'Coros', on: 'coros.on', body: h('div', null,
+      h('div', { class: 'desc' }, 'Las tomas marcadas como «Coro» (en Tomas) suenan con tu voz principal. Aquí va su cadena común: más metidas, abiertas a los lados y con más reverb que la principal.'),
+      h('div', { class: 'grid sect' },
+        K('coros.volumen', 'Volumen', -40, 12, { fmt: fmt.db, step: 0.5, ayuda: 'Volumen de todos los coros juntos (cada toma tiene además el suyo en Tomas).' }),
+        K('coros.ancho', 'Ancho', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto se abren los coros en estéreo. 0 % = todos en el centro; 75 % = como los dejas con el panorama; 100 % = un poco más abiertos.' }),
+        K('coros.reverb', 'Más reverb', -24, 12, { fmt: fmt.db, step: 0.5, ayuda: 'Reverb de los coros respecto a la de tu voz principal. Más = coros más al fondo.' }),
+        K('coros.eco', 'Más eco', -24, 12, { mas: true, fmt: fmt.db, step: 0.5, ayuda: 'Eco de los coros respecto al de tu voz principal.' }),
+        K('coros.corteGraves', 'Quita graves', 20, 1000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Los coros con menos graves dejan sitio a tu voz principal y a la base.' }),
+        K('coros.brillo', 'Brillo', -12, 12, { mas: true, fmt: fmt.db, step: 0.5, ayuda: 'Agudos de los coros. Un poco menos que la principal los mete detrás.' }),
+        K('coros.compresion', 'Compresión', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Iguala los coros para que no salte ninguno.' }))) });
+    const pistaCard = card({ id: 'pista', title: 'Pista (base)', chip: 'Pista', on: 'pista.on', body: h('div', null,
+      h('div', { class: 'desc' }, 'Retoca la base: graves, medios y agudos, cortes y una compresión suave que la «pega». El hueco para tu voz está en «Voz y base».'),
+      grMeter('gr-pista'), h('div', { class: 'grid sect' },
+        K('pista.graves', 'Graves', -12, 12, { fmt: fmt.db, step: 0.5, ayuda: 'Graves de la base (120 Hz). Bájalos si tapan tu voz o retumban.' }),
+        K('pista.medios', 'Medios', -12, 12, { fmt: fmt.db, step: 0.5, ayuda: 'Medios de la base (en la frecuencia de «Más ajustes»). Bájalos para que tu voz se oiga sin subirla.' }),
+        K('pista.agudos', 'Agudos', -12, 12, { fmt: fmt.db, step: 0.5, ayuda: 'Agudos de la base (8 kHz).' }),
+        K('pista.medFreq', 'Frecuencia medios', 200, 5000, { mas: true, curve: 'log', fmt: fmt.hz, ayuda: 'Dónde actúa «Medios».' }),
+        K('pista.corteGraves', 'Corte graves', 20, 500, { mas: true, curve: 'log', fmt: (v) => (v <= 21 ? 'apagado' : fmt.hz(v)), ayuda: 'Quita los graves por debajo de aquí.' }),
+        K('pista.corteAgudos', 'Corte agudos', 2000, 20000, { mas: true, curve: 'log', fmt: (v) => (v >= 19999 ? 'apagado' : fmt.hz(v)), ayuda: 'Quita los agudos por encima de aquí (base más oscura, tipo «radio»).' }),
+        K('pista.pegamento', 'Pegamento', 0, 100, { mas: true, fmt: fmt.pct, step: 1, ayuda: 'Compresión suave de toda la base: la une y la iguala.' }))) });
     const limCard = card({ id: 'lim', title: 'Limitador final', chip: 'Limitador', on: 'master.on', body: h('div', null,
       h('div', { class: 'desc' }, 'Último paso: sube el volumen general sin que nada pase del techo, medido en pico real (true peak), como piden Spotify y compañía.'),
       grMeter('gr-lim'),
@@ -484,7 +515,7 @@
       { id: 'color', t: 'Color', sub: 'EQ y tono', cards: [eqCard, rzCard, arCard, svCard] },
       { id: 'din', t: 'Dinámica', sub: 'Compresión', cards: [c1, c2, satCard, riderCard] },
       { id: 'esp', t: 'Espacio', sub: 'Ancho, eco y reverb', cards: [dblCard, dlyCard, revCard] },
-      { id: 'mez', t: 'Mezcla', sub: 'Voz, base y máster', cards: [mixCard, limCard] },
+      { id: 'mez', t: 'Mezcla', sub: 'Coros, pista y máster', cards: [mixCard, coroCard, pistaCard, limCard] },
     ];
     const nav = h('div', { class: 'etapas', role: 'tablist' });
     const secciones = ETAPAS.map((e, n) => {
@@ -709,7 +740,7 @@
     const L = (v) => (isFinite(v) && v > -70 ? num(v) : '—');
     if (meters.lufsM) { meters.lufsM.textContent = L(m.lufsM); meters.lufsS.textContent = L(m.lufsS); meters.tp.textContent = pk.tp > -80 ? num(pk.tp) : '—'; meters.tp.classList.toggle('tpwarn', pk.tp > -0.9); meters.lim.textContent = num(m.gr.lim); }
     const setGr = (id, v) => { const el = document.getElementById(id); if (!el) return; el.querySelector('.gfill').style.width = D.clamp(-v / 20, 0, 1) * 100 + '%'; el.querySelector('.v').textContent = num(v) + ' dB'; };
-    setGr('gr-comp1', m.gr.c1); setGr('gr-comp2', m.gr.c2); setGr('gr-ds', m.gr.deesser); setGr('gr-gate', m.gr.puerta); setGr('gr-rz', m.gr.realce); setGr('gr-sv', m.gr.suavizador); setGr('gr-cor', m.gr.corrector);
+    setGr('gr-comp1', m.gr.c1); setGr('gr-comp2', m.gr.c2); setGr('gr-ds', m.gr.deesser); setGr('gr-gate', m.gr.puerta); setGr('gr-rz', m.gr.realce); setGr('gr-sv', m.gr.suavizador); setGr('gr-cor', m.gr.corrector); setGr('gr-pista', m.gr.pista);
     { const el = document.getElementById('arNota'); if (el) el.textContent = m.nota > 0 ? (() => { const n = 12 * Math.log2(m.nota / 440) + 57, i = Math.round(n); return D.NOTAS[((i % 12) + 12) % 12] + Math.floor(i / 12) + ' · ' + fmt.hz(m.nota); })() : '—'; } setGr('gr-lim', m.gr.lim);
     const rv = (m.rider >= 0 ? '+' : '') + num(m.rider) + ' dB'; if (meters.rider) meters.rider.textContent = rv; const r2 = document.getElementById('riderVal'); if (r2) r2.textContent = rv;
     eqDyn = m.eqDin;
@@ -874,13 +905,33 @@
     S.tomas.push(t); elegirToma(S.tomas.length - 1); guardarSesion();
     return t;
   }
+  function nuevoCoro(buffer, inicio) { // toma grabada «como coro»: no pasa a ser la principal
+    S.tocado = true;
+    const n = S.tomas.filter((x) => x.coro).length;
+    const t = { id: ++tomaId, nombre: 'Coro ' + (n + 1), buffer, inicio, fecha: Date.now(), coro: true, cVol: -4, cPan: n % 2 ? 40 : -40 };
+    S.tomas.push(t); sincCoros(); pintarTomas(); guardarSesion(); return t;
+  }
   function elegirToma(i) {
     if (recState) return;
     S.tomaSel = i; const t = S.tomas[i];
     const pos = motor.position(), was = motor.playing;
     motor.toma = t ? { buffer: t.buffer, inicio: t.inicio } : null;
+    sincCoros(true);
     if (was) motor.play(pos);
     pintarTomas(); actualizarCabecera(); calcPicos(); guardarSesion();
+  }
+  // coros (24/11): tomas marcadas como «coro» que suenan a la vez que la principal, cada una con su volumen y panorama
+  function sincCoros(sinReiniciar) {
+    const antes = motor.coros.map((c) => c.buffer), lista = S.tomas.filter((t, i) => t.coro && i !== S.tomaSel);
+    motor.coros = lista.map((t) => ({ buffer: t.buffer, inicio: t.inicio, vol: t.cVol, pan: t.cPan }));
+    const cambia = antes.length !== lista.length || antes.some((b, i) => b !== lista[i].buffer);
+    if (cambia && !sinReiniciar && motor.playing) motor.play(motor.position()); else if (!cambia) motor.mezclaCoros();
+  }
+  function marcarCoro(i, si) {
+    if (recState) return; // grabando: no se cambia nada de lo que suena
+    const t = S.tomas[i]; if (!t || i === S.tomaSel) return;
+    t.coro = !!si; if (t.coro && t.cVol === undefined) { const n = S.tomas.filter((x) => x.coro).length; t.cVol = -4; t.cPan = n % 2 ? -40 : 40; }
+    sincCoros(); pintarTomas(); guardarSesion();
   }
   function pintarTomas() {
     for (const box of [listaTomasS, document.getElementById('tomasA')]) {
@@ -896,7 +947,7 @@
             if (k >= t.buffer.length - sr * 0.5) { toast('No se puede mover tanto.', 'warn'); return; }
             const nb = motor.ctx.createBuffer(1, t.buffer.length - k, sr); nb.copyToChannel(t.buffer.getChannelData(0).subarray(k), 0); t.buffer = nb; ini = 0;
           }
-          t.inicio = ini; if (S.tomaSel === i) elegirToma(i); else { pintarTomas(); guardarSesion(); }
+          t.inicio = ini; if (S.tomaSel === i) elegirToma(i); else { sincCoros(); if (t.coro && motor.playing) motor.play(motor.position()); pintarTomas(); guardarSesion(); }
           toast('Toma movida ' + Math.abs(ms) + ' ms ' + (ms > 0 ? 'antes (adelantada)' : 'después (retrasada)') + '.', 'ok');
         });
         box.appendChild(h('div', { class: 'item' + (i === S.tomaSel ? ' sel' : '') },
@@ -904,7 +955,14 @@
           h('div', { class: 'grow' }, h('div', { class: 'nm' }, t.nombre), h('div', { class: 'meta' }, tiempo(t.buffer.duration).replace(/,\d$/, '') + ' · empieza en ' + tiempo(t.inicio))),
           S.modo === 'avanzado' ? nudge : null,
           h('button', { class: 'btn sm iconbtn ghost', 'aria-label': 'Renombrar', ayuda: 'Cambiar el nombre de la toma', onclick: async () => { const n = await ask('Nombre de la toma', 'Nombre', t.nombre); if (n) { t.nombre = n; pintarTomas(); calcPicos(); guardarSesion(); } } }, icon('list')),
+          i === S.tomaSel ? h('span', { class: 'tag principal', ayuda: 'Esta es tu voz principal (la que lleva toda la cadena). Elige otra con el círculo.' }, 'Principal')
+            : h('button', { class: 'btn sm coro' + (t.coro ? ' on' : ''), ayuda: t.coro ? 'Quitar del coro' : 'Que esta toma suene como coro junto a la principal (dobles, armonías, voces de fondo).', onclick: () => marcarCoro(i, !t.coro) }, 'Coro'),
           h('button', { class: 'btn sm iconbtn ghost', 'aria-label': 'Borrar toma', ayuda: 'Borrar esta toma', onclick: () => borrarToma(i) }, icon('trash'))));
+        if (t.coro && i !== S.tomaSel) {
+          const vol = Bar({ label: 'Volumen', min: -30, max: 6, def: -4, value: t.cVol, fmt: fmt.db, step: 0.5, ayuda: 'Volumen de este coro (la cadena de coros tiene además su volumen general).', onChange: (v) => { t.cVol = v; sincCoros(); }, onEnd: () => guardarSesion() });
+          const pan = Bar({ label: 'Panorama', min: -100, max: 100, def: 0, value: t.cPan, fmt: fmt.pan, step: 1, ayuda: 'Izquierda o derecha. Abre los coros a los lados y deja el centro para tu voz principal.', onChange: (v) => { t.cPan = v; sincCoros(); }, onEnd: () => guardarSesion() });
+          box.appendChild(h('div', { class: 'coromix' }, vol.el, pan.el));
+        }
       });
     }
     const ok = S.tomas.length > 0;
@@ -947,6 +1005,7 @@
     const desdeSel = Seg({ options: [{ v: 'inicio', label: 'Desde el principio' }, { v: 'cursor', label: 'Desde el cursor (' + tiempo(motor.position()).replace(/,\d$/, '') + ')' }], value: motor.position() > 0.5 ? 'cursor' : 'inicio' });
     const cuenta = Seg({ options: [{ v: 0, label: 'Sin cuenta' }, { v: 1, label: '1 compás' }, { v: 2, label: '2 compases' }], value: lsGet('voxlite.cuenta', motor.base ? 1 : 1) });
     const metro = Switch({ label: 'Metrónomo mientras grabo', value: lsGet('voxlite.metro', !motor.base) });
+    const comoCoro = Switch({ label: 'Grabar como coro (oigo mi voz principal)', value: false, ayuda: 'Para grabar dobles y armonías: mientras grabas suenan tu voz principal y los coros, y la toma nueva se queda como coro (tu principal y tu mezcla no cambian).' });
     const escuchar = Switch({ label: 'Escucharme con los efectos', value: lsGet('voxlite.escuchar', false), ayuda: 'Te oyes con la reverb y la compresión mientras cantas. Tiene un pequeño retraso: si te molesta, apágalo y usa la escucha directa de tu interfaz.' });
     const latTxt = h('span');
     const pintaLat = () => { const L = motor.latInfo; latTxt.textContent = 'Compensación de latencia: ' + Math.round(motor.latenciaTotal() * 1000) + ' ms (' + (L.calibrada !== null ? 'calibrada' : 'estimada') + (L.ajuste ? ', ajuste ' + L.ajuste + ' ms' : '') + ')'; };
@@ -958,7 +1017,7 @@
       h('div', { class: 'field' }, h('label', null, 'Nivel de entrada'), h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, h('div', { class: 'meterh grow', style: { flex: 1 } }, lvl, clip), lvlTxt)),
       h('div', { class: 'field' }, h('label', null, 'Dónde empieza'), desdeSel.el),
       h('div', { class: 'field' }, h('label', null, 'Cuenta atrás'), cuenta.el),
-      metro.el, escuchar.el,
+      metro.el, escuchar.el, S.tomas.length ? comoCoro.el : null,
       h('div', { class: 'row dim', style: { fontSize: '12px' } }, latTxt, h('button', { class: 'btn sm ghost', onclick: () => { cerrar(); abrirAudio(); } }, 'Calibrar')),
       h('div', { class: 'foot' }, h('button', { class: 'btn', onclick: () => cerrar() }, 'Cancelar'), grabarBtn));
     let arrancando = false, cerrado = false;
@@ -993,14 +1052,14 @@
       if (stopMon) { stopMon(); stopMon = null; }
       const desde = desdeSel.get() === 'cursor' ? motor.position() : 0;
       arrancando = true; m.close();
-      try { await empezarGrabacion({ stream, desde, compases: +cuenta.get(), metronomo: metro.get(), escucharme: escuchar.get() }); }
+      try { await empezarGrabacion({ stream, desde, compases: +cuenta.get(), metronomo: metro.get(), escucharme: escuchar.get(), oirVoces: S.tomas.length > 0 && comoCoro.get(), comoCoro: S.tomas.length > 0 && comoCoro.get() }); }
       catch (e) { if (stream) stream.getTracks().forEach((t) => t.stop()); errorAudio(e); }
     });
     abrir();
   }
   async function empezarGrabacion(o) {
     if (recState) return;
-    recState = { desde: o.desde, pos: o.desde, len: 0, stream: o.stream, arrancando: true };
+    recState = { desde: o.desde, pos: o.desde, len: 0, stream: o.stream, arrancando: true, comoCoro: !!o.comoCoro };
     let r;
     try { r = await motor.grabar(o); }
     catch (e) { recState = null; throw e; }
@@ -1031,12 +1090,13 @@
     if (st.cancelar) { dibujarOnda(); return; }
     if (!res || res.buffer.duration < 0.5) { toast('La grabación era demasiado corta y no se ha guardado.', 'warn'); dibujarOnda(); return; }
     let pk2 = 0; const d = res.buffer.getChannelData(0); for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > pk2) pk2 = a; }
-    const t = nuevaToma(res.buffer, res.inicio);
+    const t = st.comoCoro ? nuevoCoro(res.buffer, res.inicio) : nuevaToma(res.buffer, res.inicio);
     motor.pos = res.inicio;
     if (pk2 < 0.003) toast('<b>' + t.nombre + '</b> está casi en silencio. ¿Está bien elegido el micrófono?', 'warn', 8000);
     else if (pk2 > 0.99) toast('<b>' + t.nombre + '</b> guardada, pero <b>ha saturado</b> (rojo). Baja la ganancia del micro o aléjate un poco y repite.', 'warn', 9000);
     else toast('<b>' + t.nombre + '</b> guardada (' + tiempo(res.buffer.duration).replace(/,\d$/, '') + '). Dale ▶ para escucharla mezclada.', 'ok');
-    if (S.modo === 'sencillo' || !S.auto) mezclaAuto(true);
+    if (st.comoCoro) toast('<b>' + t.nombre + '</b> se ha quedado como <b>coro</b>. Ajusta su volumen y su lado en la lista de tomas.', 'info', 6000);
+    else if (S.modo === 'sencillo' || !S.auto) mezclaAuto(true);
     else toast('Tus ajustes del modo avanzado se mantienen. Si quieres que vuelva a analizar tu voz, pulsa «Mezcla auto».', 'info', 6000);
   }
 
@@ -1084,6 +1144,7 @@
     p.bpm = bpm;
     p = aplicarAuto(p);
     p.corrector = clone(S.params.corrector); // «Voz de móvil» es de tu micro: cambiar de estilo no toca lo que hayas ajustado
+    p.pista = clone(S.params.pista); p.coros = clone(S.params.coros); // la pista y los coros son de tu canción
     p.voz.volumen = vozVol; p.base.volumen = baseVol; // cambiar de estilo no toca tus faders
     S.presetId = id; S.params = p; S.modificado = false;
     refresh(); push();
@@ -1135,7 +1196,7 @@
     inp.click();
   }
   // nivel de entrada, limpieza, volúmenes y bpm dependen de cada voz y cada canción: no viajan en un preset
-  function sinPersonales(p) { const d = D.defaultParams(); p.entrada = d.entrada; p.limpieza = d.limpieza; p.corrector = d.corrector; p.voz.volumen = 0; p.base.volumen = 0; p.voz.mute = p.voz.solo = p.base.mute = false; p.bpm = 120; delete p.bypass; return p; }
+  function sinPersonales(p) { const d = D.defaultParams(); p.entrada = d.entrada; p.limpieza = d.limpieza; p.corrector = d.corrector; p.pista = d.pista; p.coros = d.coros; p.voz.volumen = 0; p.base.volumen = 0; p.voz.mute = p.voz.solo = p.base.mute = false; p.bpm = 120; delete p.bypass; return p; }
   function recibirPreset(nombre, params) {
     const p = sinPersonales(D.prepararParams(sanear(params)));
     const mis = misPresets(); const id = 'mio-' + Date.now().toString(36);
@@ -1179,7 +1240,7 @@
   async function abrirExportar() {
     if (grabando()) return;
     if (!motor.duracion()) { toast('No hay nada que exportar todavía: carga una base o graba tu voz.', 'warn'); return; }
-    const que = Seg({ options: [{ v: 'mezcla', label: 'Mezcla completa' }, { v: 'voz', label: 'Solo mi voz con efectos' }, { v: 'seca', label: 'Mi voz sin efectos' }], value: S.que, ayuda: '«Mi voz sin efectos» es la toma tal cual, en su sitio de la canción: útil para mandársela a Áleran o mezclar en otro programa.' });
+    const que = Seg({ options: [{ v: 'mezcla', label: 'Mezcla completa' }, { v: 'voz', label: 'Solo mis voces con efectos' }, { v: 'seca', label: 'Mi voz sin efectos' }], value: S.que, ayuda: '«Mi voz sin efectos» es la toma tal cual, en su sitio de la canción: útil para mandársela a Áleran o mezclar en otro programa.' });
     const forma = Seg({ options: [{ v: 'wav24', label: 'WAV 24 bits' }, { v: 'wav16', label: 'WAV 16 bits' }, { v: 'mp3-320', label: 'MP3 320' }, { v: 'mp3-192', label: 'MP3 192' }], value: S.formato, ayuda: 'WAV = máxima calidad (archivo grande). MP3 = para mandar por WhatsApp o subir rápido.' });
     const obj = Select({ options: OBJETIVOS(), value: S.objetivo === null ? 'none' : String(S.objetivo) });
     const nombre = h('input', { class: 'input', value: (Exportar.limpiarNombre(S.baseNombre || 'Mi canción') || 'Mi canción') + ' - ' + ((presetPorId(S.presetId) || {}).nombre || 'mezcla') });
@@ -1285,11 +1346,11 @@
       h('h3', null, '2 · Carga y graba'),
       paso('m3', 'Carga la base.', 'Botón <b>Cargar base</b> o arrastra el archivo a la ventana. El tempo (BPM) se detecta solo.'),
       paso('m4', 'Graba.', 'Botón <b>●</b> o <b>Grabar</b>. Elige el micro, mira que la barra no toque el rojo y pulsa <b>Empezar a grabar</b>. Hay cuenta atrás de 1 compás. Para parar: <b>■</b> o barra espaciadora.', 'si la barra se queda en verde muy flojo, sube la ganancia de tu interfaz; si toca el rojo, bájala.'),
-      paso('m5', 'Haz varias tomas y quédate con la mejor.', 'Cada grabación es una toma nueva. Elige la buena en la lista. Para grabar solo un trozo, pon el cursor en el visor y elige «Desde el cursor».'),
+      paso('m5', 'Haz varias tomas y quédate con la mejor.', 'Cada grabación es una toma nueva. Elige la buena en la lista (la principal). Las demás puedes marcarlas como <b>Coro</b>: suenan con la principal, cada una con su volumen y su lado. Para grabar solo un trozo, pon el cursor en el visor y elige «Desde el cursor».'),
       h('h3', null, '3 · Mezcla'),
       paso('m6', 'Elige estilo y escucha.', 'Al grabar se hace sola la <b>mezcla automática</b> (nivel, barro, resonancias, eses y volumen frente a la base). Cambia de estilo mientras suena. Los estilos de Áleran dejan tu voz <b>metida en la pista</b>, como en un disco, con los efectos floreciendo entre frases; casi todos llevan el <b>vocal rider</b>, que sube solo las frases que cantas más flojas.', 'lee «Lo que he ajustado»: te explica qué ha hecho con tu voz.'),
       paso('m7', 'Retoca a tu gusto.', '<b>Realce</b> (voz de radio: densa y siempre delante), voz delante, brillo, cuerpo, compresión, reverb, eco y <b>anchura</b>. Reverb y eco van en paralelo: tu voz seca no se toca, solo se suma más efecto. Doble clic en una perilla la deja como estaba.', 'si quieres mucho efecto pegado a la voz, en el modo avanzado baja el <b>ducking</b> del delay y de la reverb: el ducking aparta el efecto mientras cantas y lo deja sonar en los huecos.'),
-      paso('m8', 'Modo avanzado (opcional).', 'Ordenado por etapas, siguiendo el camino de tu voz: <b>1 Voz</b> (tomas y limpieza), <b>2 Color</b> (EQ y tono), <b>3 Dinámica</b> (compresión), <b>4 Espacio</b> (ancho, eco y reverb) y <b>5 Mezcla</b>. En cada tarjeta, lo importante va en perillas y lo fino en «Más ajustes». «Ver todo» enseña todas las etapas a la vez. Todos los parámetros de estudio: Voz de móvil (corrector de micro), Realce vocal, Armónicos, Suavizador, EQ de 8 bandas con dinámica, de-esser, dos compresores (FET, óptico, VCA y moderno), saturación, doblador, vocal rider, delay, reverb y limitador. Pasa el ratón por cada control y abajo verás qué hace.', 'la barra «Reducción» de cada compresor: 3–6 dB en las frases fuertes es lo normal en voz.'),
+      paso('m8', 'Modo avanzado (opcional).', 'Ordenado por etapas, siguiendo el camino de tu voz: <b>1 Voz</b> (tomas y limpieza), <b>2 Color</b> (EQ y tono), <b>3 Dinámica</b> (compresión), <b>4 Espacio</b> (ancho, eco y reverb) y <b>5 Mezcla</b> (voz y base, <b>coros</b>, <b>pista</b> y máster). En cada tarjeta, lo importante va en perillas y lo fino en «Más ajustes». «Ver todo» enseña todas las etapas a la vez. Todos los parámetros de estudio: Voz de móvil (corrector de micro), Realce vocal, Armónicos, Suavizador, EQ de 8 bandas con dinámica, de-esser, dos compresores (FET, óptico, VCA y moderno), saturación, doblador, vocal rider, delay, reverb y limitador. Pasa el ratón por cada control y abajo verás qué hace.', 'la barra «Reducción» de cada compresor: 3–6 dB en las frases fuertes es lo normal en voz.'),
       h('h3', null, '4 · Exporta y comparte'),
       paso('m9', 'Exporta.', 'Botón <b>Exportar</b>: mezcla completa, solo tu voz con efectos o tu voz sin tocar; WAV o MP3; y el volumen final (Streaming −14 LUFS para Spotify/YouTube).', 'al terminar verás el volumen (LUFS) y el pico más alto. Con un «Volumen final» elegido, el pico nunca pasa de −1 dB.'),
       paso('m10', 'Guarda o comparte tu sonido.', '<b>Guardar preset</b> lo guarda en este navegador. <b>Copiar enlace</b> crea un enlace con tus ajustes (sin tu voz) para mandárselo a Áleran o a un compañero.'),
@@ -1329,6 +1390,9 @@
     ['g25', 'Realce y brillo', 'En el avanzado, con la mezcla automática hecha, enciende y apaga el Realce. ¿La banda «Aire» de la EQ baja al encenderlo y vuelve al apagarlo (sin brillo de más)?'],
     ['g26', 'Modo avanzado ordenado', 'Pasa por las 5 etapas en tu pantalla y en el móvil. ¿Las tarjetas encajan sin huecos? ¿Encuentras lo que buscas? Abre «Más ajustes» en alguna y prueba «Ver todo».'],
     ['g27', 'Compresor en directo', 'Dale play y mira la gráfica de los compresores: ¿la bola recorre la curva y se ve cuánto comprime?'],
+    ['g28', 'Coros', 'Graba dos o más tomas. Deja una como principal y pulsa «Coro» en otra. ¿Suenan juntas? Mueve su Volumen y Panorama mientras suena. En «5 · Mezcla → Coros», ¿Más reverb los mete al fondo? ¿Se exportan?'],
+    ['g29', 'Pista (base)', 'En «5 · Mezcla → Pista», enciéndela y baja los Medios o los Graves. ¿La base cambia y tu voz se entiende mejor? ¿Se exporta así?'],
+    ['g30', 'Tamaño y pantallas', 'Prueba «Tamaño» (abajo a la derecha) y abre la app en otra pantalla y en el móvil. ¿Todo cabe sin barras raras?'],
     ['g16', 'Tu oído', 'Compara una mezcla de VoxStudio Lite con la del VoxStudio de escritorio con la misma toma.'],
   ];
   function construirGuia() {
@@ -1362,7 +1426,7 @@
       try {
         const db = await idb();
         const base = motor.base ? { nombre: S.baseNombre || '', sr: motor.base.sampleRate, ch: [...Array(motor.base.numberOfChannels)].map((_, c) => motor.base.getChannelData(c)) } : null;
-        const tomas = S.tomas.map((t) => ({ nombre: t.nombre, inicio: t.inicio, sr: t.buffer.sampleRate, d: t.buffer.getChannelData(0), fecha: t.fecha }));
+        const tomas = S.tomas.map((t) => ({ nombre: t.nombre, inicio: t.inicio, sr: t.buffer.sampleRate, d: t.buffer.getChannelData(0), fecha: t.fecha, coro: !!t.coro, cVol: t.cVol, cPan: t.cPan }));
         await new Promise((res, rej) => { const tx = db.transaction(DB.store, 'readwrite'); tx.objectStore(DB.store).put({ base, tomas, tomaSel: S.tomaSel }, 'actual'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error('abort')); }).finally(() => db.close());
       } catch (e) { console.warn('No se pudo guardar la sesión', e); if (e && e.name === 'QuotaExceededError') toast('El navegador no tiene espacio para guardar la sesión. Exporta tu trabajo.', 'warn'); }
     }, 1200);
@@ -1377,7 +1441,7 @@
       if (S.tocado) return; // el alumno ya ha cargado algo nuevo: no se pisa
       const mk = async (chs, sr) => { if (sr !== motor.sr) chs = await motor.remuestrear(chs, sr, motor.sr); const b = motor.ctx.createBuffer(chs.length, chs[0].length, motor.sr); chs.forEach((c, i) => b.copyToChannel(c, i)); return b; };
       const base = d.base ? await mk(d.base.ch, d.base.sr) : null;
-      const tomas = []; for (const t of d.tomas || []) tomas.push({ id: ++tomaId, nombre: t.nombre, inicio: t.inicio, buffer: await mk([t.d], t.sr), fecha: t.fecha });
+      const tomas = []; for (const t of d.tomas || []) tomas.push({ id: ++tomaId, nombre: t.nombre, inicio: t.inicio, buffer: await mk([t.d], t.sr), fecha: t.fecha, coro: !!t.coro, cVol: isFinite(t.cVol) ? D.clamp(+t.cVol, -30, 6) : undefined, cPan: isFinite(t.cPan) ? D.clamp(+t.cPan, -100, 100) : undefined });
       if (S.tocado) return;
       if (base) { motor.base = base; S.baseNombre = d.base.nombre; motor.baseNombre = d.base.nombre; }
       S.tomas = tomas;
@@ -1389,7 +1453,7 @@
   async function empezarDeCero() {
     if (grabando()) return;
     if (!confirm('¿Empezar de cero? Se quitan la base y todas las tomas de este navegador (tus presets se conservan).')) return;
-    motor.stop(); motor.loop = null; S.loopGuard = null; btnLoop.classList.remove('on'); motor.base = null; motor.toma = null; S.tomas = []; S.tomaSel = -1; S.auto = null; S.autoExtra = null; S.baseNombre = ''; S.bpmManual = false; S.macros = { delante: 0, brillo: 0, cuerpo: 0, compresion: 0, reverb: 0, eco: 0, ancho: 0, realce: 0, suavizar: 0, armonicos: 0, pausas: 0 };
+    motor.stop(); motor.loop = null; S.loopGuard = null; btnLoop.classList.remove('on'); motor.base = null; motor.toma = null; motor.coros = []; S.tomas = []; S.tomaSel = -1; S.auto = null; S.autoExtra = null; S.baseNombre = ''; S.bpmManual = false; S.macros = { delante: 0, brillo: 0, cuerpo: 0, compresion: 0, reverb: 0, eco: 0, ancho: 0, realce: 0, suavizar: 0, armonicos: 0, pausas: 0 };
     elegirPreset(S.presetId); pintarTomas(); calcPicos(); actualizarCabecera(); guardarSesion(); autoNotas.innerHTML = ''; expRes.innerHTML = '';
   }
 
