@@ -2,13 +2,13 @@
 (function () {
   'use strict';
   const D = window.VoxDSP, { h, icon, fmt, num, tiempo, Knob, Bar, Seg, Switch, Select, toast, modal, ask } = window.UI;
-  const VERSION = '1.0';
+  const VERSION = '1.1';
   const motor = new window.Motor();
   const DEF = D.defaultParams();
 
   // ───────────────────────── estado ─────────────────────────
   const PRESETS = (window.VOX_PRESETS_ALERAN || []).map((p) => Object.assign({ origen: 'aleran' }, p));
-  const LS = 'voxlite.estado', LS_MIS = 'voxlite.mispresets', LS_MAN = 'voxlite.manual', LS_GUIA = 'voxlite.guia';
+  const LS = 'voxlite.ajustes', LS_MIS = 'voxlite.mispresets', LS_MAN = 'voxlite.manual', LS_GUIA = 'voxlite.guia';
   const S = {
     modo: 'sencillo', paso: 1,
     params: D.defaultParams(), presetId: PRESETS[0] ? PRESETS[0].id : '',
@@ -68,13 +68,41 @@
 
   let pushPend = false;
   function push() {
+    guardarEstado();
     if (pushPend) return; pushPend = true;
-    requestAnimationFrame(() => { pushPend = false; motor.setParams(efectivos()); guardarEstado(); dibujarEq(); dibujarCurvas(); });
+    requestAnimationFrame(() => { pushPend = false; motor.setParams(efectivos()); dibujarEq(); dibujarCurvas(); });
   }
   let saveT = 0;
   const escribirEstado = () => lsSet(LS, { modo: S.modo, params: S.params, presetId: S.presetId, macros: S.macros, objetivo: S.objetivo, formato: S.formato, que: S.que, auto: S.auto, autoExtra: S.autoExtra, bpmManual: S.bpmManual });
-  function guardarEstado() { clearTimeout(saveT); saveT = setTimeout(escribirEstado, 400); }
-  window.addEventListener('pagehide', () => { clearTimeout(saveT); escribirEstado(); });
+  // Los ajustes NO se guardan solos: solo con «Guardar ajustes». Cada cambio entra en el historial de deshacer.
+  function guardarEstado() { clearTimeout(saveT); saveT = setTimeout(registrarHistorial, 450); }
+  const foto = () => JSON.stringify({ params: S.params, macros: S.macros, presetId: S.presetId, auto: S.auto, autoExtra: S.autoExtra, bpmManual: S.bpmManual, objetivo: S.objetivo, modificado: !!S.modificado });
+  const HIST = { atras: [], adelante: [], ultimo: null, guardado: null };
+  function registrarHistorial() {
+    const f = foto();
+    if (HIST.ultimo === null) HIST.ultimo = f;
+    else if (f !== HIST.ultimo) { HIST.atras.push(HIST.ultimo); if (HIST.atras.length > 100) HIST.atras.shift(); HIST.adelante = []; HIST.ultimo = f; }
+    pintarHistorial();
+  }
+  function aplicarFoto(f) {
+    const o = JSON.parse(f);
+    S.params = D.prepararParams(sanear(o.params)); S.macros = o.macros; S.presetId = o.presetId; S.auto = o.auto ? D.prepararParams(sanear(o.auto)) : null;
+    S.autoExtra = o.autoExtra; S.bpmManual = o.bpmManual; S.objetivo = o.objetivo; S.modificado = o.modificado;
+    HIST.ultimo = f; refresh(); sincObjetivo(); push(); pintarHistorial();
+  }
+  function deshacer() { clearTimeout(saveT); registrarHistorial(); if (!HIST.atras.length) return; HIST.adelante.push(HIST.ultimo); aplicarFoto(HIST.atras.pop()); toast('Deshecho', 'info', 900); }
+  function rehacer() { clearTimeout(saveT); registrarHistorial(); if (!HIST.adelante.length) return; HIST.atras.push(HIST.ultimo); aplicarFoto(HIST.adelante.pop()); toast('Rehecho', 'info', 900); }
+  function guardarAjustes() { clearTimeout(saveT); registrarHistorial(); escribirEstado(); HIST.guardado = foto(); pintarHistorial(); toast('Ajustes guardados. Se cargarán la próxima vez que abras VoxStudio.', 'ok'); }
+  const btnDeshacer = h('button', { class: 'btn iconbtn', 'aria-label': 'Deshacer', ayuda: 'Deshacer el último cambio de la mezcla (Ctrl+Z)', onclick: () => deshacer() }, icon('undo'));
+  const btnRehacer = h('button', { class: 'btn iconbtn', 'aria-label': 'Rehacer', ayuda: 'Rehacer lo deshecho (Ctrl+Y)', onclick: () => rehacer() }, icon('redo'));
+  const btnGuardarAj = h('button', { class: 'btn', ayuda: 'Guarda la mezcla tal como está ahora. Si no la guardas, al recargar la página vuelve a la última que guardaste.', onclick: () => guardarAjustes() }, icon('save'), h('span', { class: 'lbltxt' }, 'Guardar ajustes'));
+  const histBar = h('div', { class: 'histbar' }, btnDeshacer, btnRehacer, btnGuardarAj);
+  function pintarHistorial() {
+    btnDeshacer.disabled = !HIST.atras.length; btnRehacer.disabled = !HIST.adelante.length;
+    const sin = HIST.guardado !== null && HIST.ultimo !== HIST.guardado;
+    btnGuardarAj.classList.toggle('pendiente', sin); btnGuardarAj.dataset.ayuda = sin ? 'Tienes cambios sin guardar. Si recargas la página se pierden.' : 'Guarda la mezcla tal como está ahora.';
+  }
+  window.addEventListener('beforeunload', (e) => { if (HIST.guardado !== null && foto() !== HIST.guardado && S.modificado) { e.preventDefault(); e.returnValue = ''; } });
 
   // ───────────────────────── registro de controles ─────────────────────────
   const REG = []; const VIS = [];
@@ -128,7 +156,7 @@
   const tabsS = h('div', { class: 'tabs', role: 'tablist' });
   const btnModo = h('button', { class: 'btn', onclick: () => cambiarModo(S.modo === 'sencillo' ? 'avanzado' : 'sencillo') });
   const subbar = h('div', { class: 'subbar' }, tabsS, h('div', { class: 'grow' }),
-    h('button', { class: 'btn', ayuda: 'Manual paso a paso y guía de prueba', onclick: () => abrirManual() }, icon('book'), h('span', { class: 'lbltxt' }, 'Manual')), btnModo);
+    histBar, h('button', { class: 'btn', ayuda: 'Manual paso a paso y guía de prueba', onclick: () => abrirManual() }, icon('book'), h('span', { class: 'lbltxt' }, 'Manual')), btnModo);
 
   // visor de la canción
   const cvWave = h('canvas'), cvTop = h('canvas');
@@ -1337,6 +1365,8 @@
     if (document.querySelector('.modal')) return;
     if (e.target.closest && e.target.closest('input, textarea, select, .modal')) return;
     if (e.target.closest && e.target.closest('[role="switch"], button') && (e.code === 'Space' || e.key === 'Enter')) return; // el interruptor o botón usa su propia tecla
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) rehacer(); else deshacer(); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); rehacer(); return; }
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); abrirGrabacion(); }
     else if (e.key === 'Home') { if (!grabando()) motor.seek(0); }
@@ -1368,6 +1398,7 @@
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* opcional */ }
     leerHash();
     window.addEventListener('hashchange', leerHash);
+    clearTimeout(saveT); HIST.ultimo = foto(); HIST.guardado = HIST.ultimo; pintarHistorial();
     // botón «empezar de cero» discreto en la barra de estado
     statusbar.insertBefore(h('button', { class: 'btn sm ghost', ayuda: 'Quitar la base y las tomas y empezar otra canción.', onclick: () => empezarDeCero() }, icon('refresh'), 'Nueva canción'), statusbar.lastChild);
     // ganchos para las pruebas automáticas

@@ -49,6 +49,10 @@ button, input, select { font: inherit; color: inherit; }
 .topbar .grow { flex: 1; min-width: 0; }
 .subbar { display: flex; align-items: center; gap: 10px; padding: 10px 12px 0; }
 .subbar .grow { flex: 1; }
+.histbar { display: flex; gap: 6px; align-items: center; }
+.histbar .btn:disabled { opacity: 0.35; cursor: default; }
+.histbar .btn.pendiente { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.histbar .btn.pendiente::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: 2px; }
 .main { display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar); gap: 0; min-height: 0; }
 .content { padding: 12px; min-width: 0; }
 .sidebar { border-left: 1px solid #000; box-shadow: inset 1px 0 0 rgba(255,255,255,0.03); background: linear-gradient(#171111, #120d0d); padding: 12px 10px; display: flex; flex-direction: column; gap: 10px; }
@@ -312,5 +316,9 @@ option, optgroup { background: #241b1b; color: var(--text); }
   .content { padding: 10px; }
   .emblem { display: none; }
   .statusbar .marca { display: none; }
+  .histbar { position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 150; background: #140d0d; padding: 6px; border-radius: 14px; border: 1px solid rgba(208,32,46,0.35); box-shadow: 0 6px 22px rgba(0,0,0,0.6); }
+  .histbar .btn { height: 44px; min-width: 44px; }
+  .histbar .lbltxt { display: none; }
+  .content { padding-bottom: 80px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
