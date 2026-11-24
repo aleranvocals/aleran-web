@@ -5,7 +5,7 @@ function micSource(ctx, stream) {
     throw e;
   }
 }
-/* VoxStudio Lite · motor de audio del navegador: reproducción, grabación con compensación de
+/* EpicStudio Lite · motor de audio del navegador: reproducción, grabación con compensación de
  * latencia, calibración, render sin conexión (exportar) y medidores. */
 (function () {
   'use strict';

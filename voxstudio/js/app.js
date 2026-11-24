@@ -1,4 +1,4 @@
-/* VoxStudio Lite · aplicación (estado, pantallas y flujo de trabajo). */
+/* EpicStudio Lite · aplicación (estado, pantallas y flujo de trabajo). */
 (function () {
   'use strict';
   const D = window.VoxDSP, { h, icon, fmt, num, tiempo, Knob, Bar, Seg, Switch, Select, toast, modal, ask } = window.UI;
@@ -93,7 +93,7 @@
   }
   function deshacer() { clearTimeout(saveT); registrarHistorial(); if (!HIST.atras.length) return; HIST.adelante.push(HIST.ultimo); aplicarFoto(HIST.atras.pop()); toast('Deshecho', 'info', 900); }
   function rehacer() { clearTimeout(saveT); registrarHistorial(); if (!HIST.adelante.length) return; HIST.atras.push(HIST.ultimo); aplicarFoto(HIST.adelante.pop()); toast('Rehecho', 'info', 900); }
-  function guardarAjustes() { clearTimeout(saveT); registrarHistorial(); escribirEstado(); HIST.guardado = foto(); pintarHistorial(); toast('Ajustes guardados. Se cargarán la próxima vez que abras VoxStudio.', 'ok'); }
+  function guardarAjustes() { clearTimeout(saveT); registrarHistorial(); escribirEstado(); HIST.guardado = foto(); pintarHistorial(); toast('Ajustes guardados. Se cargarán la próxima vez que abras EpicStudio.', 'ok'); }
   const btnDeshacer = h('button', { class: 'btn iconbtn', 'aria-label': 'Deshacer', ayuda: 'Deshacer el último cambio de la mezcla (Ctrl+Z)', onclick: () => deshacer() }, icon('undo'));
   const btnRehacer = h('button', { class: 'btn iconbtn', 'aria-label': 'Rehacer', ayuda: 'Rehacer lo deshecho (Ctrl+Y)', onclick: () => rehacer() }, icon('redo'));
   const btnGuardarAj = h('button', { class: 'btn', ayuda: 'Guarda la mezcla tal como está ahora. Si no la guardas, al recargar la página vuelve a la última que guardaste.', onclick: () => guardarAjustes() }, icon('save'), h('span', { class: 'lbltxt' }, 'Guardar ajustes'));
@@ -191,7 +191,7 @@
   }
   const tamSel = Select({ value: tam, options: TAMS, ayuda: 'Tamaño de toda la interfaz. «Auto» la ajusta a tu pantalla; si en un portátil pequeño no te cabe, prueba 80 o 90 %.', onChange: (v) => { tam = v; try { localStorage.setItem('voxlite.tamano', v); } catch (e) { /* sin almacenamiento */ } aplicarTam(); requestAnimationFrame(() => { dibujarEq(); dibujarCurvas(); }); } });
   tamSel.el.classList.add('tamsel'); aplicarTam(); window.addEventListener('resize', () => { if (tam === 'auto') { aplicarTam(); requestAnimationFrame(() => { dibujarEq(); dibujarCurvas(); }); } });
-  const statusbar = h('div', { class: 'statusbar' }, icon('help'), status, h('span', { class: 'marca' }, 'Áleran Vocals · VoxStudio Lite v' + VERSION),
+  const statusbar = h('div', { class: 'statusbar' }, icon('help'), status, h('span', { class: 'marca' }, 'Áleran Vocals · EpicStudio Lite v' + VERSION),
     tamSel.el, h('button', { class: 'btn sm ghost', onclick: () => acercaDe() }, 'Acerca de'));
   app.append(topbar, subbar, h('div'), main, statusbar);
   status.textContent = AYUDA_DEF; UI.bindHelp(status, AYUDA_DEF);
@@ -366,7 +366,7 @@
   function colAvanzado() {
     // fila superior
     const top = h('div', { class: 'panel adv-top' },
-      h('div', { class: 'brand' }, h('div', { class: 'v' }, 'V'), h('div', null, h('div', { class: 't1' }, 'VOXSTUDIO'), h('div', { class: 't2' }, 'Lite · Áleran Vocals'))),
+      h('div', { class: 'brand' }, h('div', { class: 'v' }, 'E'), h('div', null, h('div', { class: 't1' }, 'EPICSTUDIO'), h('div', { class: 't2' }, 'Lite · Áleran Vocals'))),
       h('div', { class: 'vsep' }),
       K('entrada.ganancia', 'Entrada', -24, 36, { fmt: fmt.db, step: 0.1, size: 'sm', ayuda: 'Nivel de tu voz al entrar a la cadena. La mezcla automática lo pone para que la voz cantada entre a −20 dBFS.' }),
       h('div', { class: 'field', style: { minWidth: '220px', flex: '1' } }, h('label', null, 'Estilo / preset'), h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, presetSelA.el,
@@ -1174,8 +1174,8 @@
       h('div', { class: 'foot' }, dl, h('button', { class: 'btn sm', onclick: () => { compartirPreset(); } }, icon('share'), 'Copiar enlace'), h('button', { class: 'btn primary sm', onclick: () => m.close() }, 'Hecho'))) });
   }
   function descargarPreset(nombre, p) {
-    const blob = new Blob([JSON.stringify({ app: 'VoxStudio Lite', version: 1, nombre, params: p }, null, 2)], { type: 'application/json' });
-    Exportar.descargar(blob, 'Preset VoxStudio - ' + Exportar.limpiarNombre(nombre) + '.json');
+    const blob = new Blob([JSON.stringify({ app: 'EpicStudio Lite', version: 1, nombre, params: p }, null, 2)], { type: 'application/json' });
+    Exportar.descargar(blob, 'Preset EpicStudio - ' + Exportar.limpiarNombre(nombre) + '.json');
   }
   // diferencias con los valores por defecto (enlaces cortos)
   function diff(a, b) {
@@ -1198,7 +1198,7 @@
     inp.addEventListener('change', async () => {
       try {
         const j = JSON.parse(await inp.files[0].text());
-        if (!j || typeof j.params !== 'object') throw new Error('no es un preset de VoxStudio Lite');
+        if (!j || typeof j.params !== 'object') throw new Error('no es un preset de EpicStudio Lite');
         recibirPreset(j.nombre || inp.files[0].name.replace(/\.json$/i, ''), j.params);
       } catch (e) { toast('No he podido leer ese preset: ' + escapar(e.message), 'err'); }
     });
@@ -1268,7 +1268,7 @@
       go.disabled = true; res.innerHTML = '';
       const was = motor.playing; if (was) motor.stop();
       try {
-        const out = await exportar({ que: S.que, formato: S.formato, objetivo: S.objetivo, nombre: Exportar.limpiarNombre(nombre.value) || 'VoxStudio', onProgress: (f, txt) => { prog.style.width = Math.round(f * 100) + '%'; if (txt) progTxt.textContent = txt; } });
+        const out = await exportar({ que: S.que, formato: S.formato, objetivo: S.objetivo, nombre: Exportar.limpiarNombre(nombre.value) || 'EpicStudio', onProgress: (f, txt) => { prog.style.width = Math.round(f * 100) + '%'; if (txt) progTxt.textContent = txt; } });
         prog.style.width = '100%'; progTxt.textContent = 'Listo. El archivo se ha descargado.';
         res.innerHTML = out.html; expRes.innerHTML = out.html;
         actualizarPasos(true);
@@ -1328,7 +1328,7 @@
     });
     const proc = (k, label, ay) => Switch({ label, value: motor.proc[k], ayuda: ay, onChange: (v) => { motor.proc[k] = v; motor.guardarAjustes(); } }).el;
     modal({ title: 'Audio y latencia', icon: 'gear', wide: false, body: h('div', { class: 'stack' }, out,
-      h('div', { class: 'callout info' }, h('b', null, 'Calibrar: '), 'quítate los auriculares, sube los altavoces a volumen normal y acerca el micro. Sonarán 8 clics; VoxStudio mide cuánto tardan en ir y volver y lo descuenta de cada toma para que tu voz caiga exacta sobre la base. Hazlo una vez por equipo.'),
+      h('div', { class: 'callout info' }, h('b', null, 'Calibrar: '), 'quítate los auriculares, sube los altavoces a volumen normal y acerca el micro. Sonarán 8 clics; EpicStudio mide cuánto tardan en ir y volver y lo descuenta de cada toma para que tu voz caiga exacta sobre la base. Hazlo una vez por equipo.'),
       h('div', { class: 'row' }, calBtn, h('button', { class: 'btn', onclick: () => { L.calibrada = null; motor.guardarAjustes(); pinta(); calTxt.textContent = 'Calibración borrada: se usa la estimación.'; } }, 'Borrar calibración')), calTxt,
       h('div', { class: 'row' }, ajuste.el, h('div', { class: 'tip grow' }, 'Después de calibrar no suele hacer falta. Si aun así notas la voz desplazada, mueve el ajuste fino y graba otra toma. Para mover una toma ya grabada, usa «Tomas» en el modo avanzado.')),
       h('div', { class: 'caps' }, 'Procesado del navegador (mejor apagado para cantar)'),
@@ -1348,7 +1348,7 @@
       return el;
     };
     const man = h('div', { class: 'manual' },
-      h('p', null, 'VoxStudio Lite mezcla tu voz como en un estudio, directamente en el navegador. Nada se sube a internet: tu voz se queda en tu ordenador. Ve marcando los pasos; las casillas se quedan guardadas.'),
+      h('p', null, 'EpicStudio Lite mezcla tu voz como en un estudio, directamente en el navegador. Nada se sube a internet: tu voz se queda en tu ordenador. Ve marcando los pasos; las casillas se quedan guardadas.'),
       h('h3', null, '1 · Prepara'),
       paso('m1', 'Usa Chrome o Edge (o Safari en Mac/iPhone).', 'Ponte <b>auriculares</b>. Conecta tu micro o tu interfaz antes de abrir la página.', 'si el navegador pregunta por el micrófono, pulsa «Permitir».'),
       paso('m2', 'Calibra la latencia una vez por equipo.', 'Botón <b>Audio</b> → <b>Calibrar latencia</b>, sin auriculares y con los altavoces encendidos. Así tu voz cae exacta sobre la base.', 'debe salir una cifra entre 10 y 300 ms con poca variación.'),
@@ -1370,7 +1370,7 @@
     const guia = construirGuia();
     const tabs = Seg({ options: [{ v: 'man', label: 'Manual' }, { v: 'guia', label: 'Guía de prueba (Áleran)' }], value: tab || 'man', onChange: (v) => { man.classList.toggle('hidden', v !== 'man'); guia.classList.toggle('hidden', v !== 'guia'); } });
     man.classList.toggle('hidden', (tab || 'man') !== 'man'); guia.classList.toggle('hidden', (tab || 'man') !== 'guia');
-    modal({ title: 'Manual', sub: 'VoxStudio Lite paso a paso', icon: 'book', wide: true, body: h('div', null, h('div', { style: { marginBottom: '12px' } }, tabs.el), man, guia) });
+    modal({ title: 'Manual', sub: 'EpicStudio Lite paso a paso', icon: 'book', wide: true, body: h('div', null, h('div', { style: { marginBottom: '12px' } }, tabs.el), man, guia) });
   }
   const FICHAS = [
     ['g1', 'Abre en Chrome/Edge y carga una base', 'Arrastra un MP3 a la ventana. Debe aparecer en el visor y detectarse el BPM.'],
@@ -1402,7 +1402,7 @@
     ['g28', 'Coros', 'Graba dos o más tomas. Deja una como principal y pulsa «Coro» en otra. ¿Suenan juntas? Mueve su Volumen y Panorama mientras suena. En «5 · Mezcla → Coros», ¿Más reverb los mete al fondo? ¿Se exportan?'],
     ['g29', 'Pista (base)', 'En «5 · Mezcla → Pista», enciéndela y baja los Medios o los Graves. ¿La base cambia y tu voz se entiende mejor? ¿Se exporta así?'],
     ['g30', 'Tamaño y pantallas', 'Prueba «Tamaño» (abajo a la derecha) y abre la app en otra pantalla y en el móvil. ¿Todo cabe sin barras raras?'],
-    ['g16', 'Tu oído', 'Compara una mezcla de VoxStudio Lite con la del VoxStudio de escritorio con la misma toma.'],
+    ['g16', 'Tu oído', 'Compara una mezcla de EpicStudio Lite con la del programa de escritorio con la misma toma.'],
   ];
   function construirGuia() {
     const g = lsGet(LS_GUIA, {});
@@ -1415,13 +1415,13 @@
       ta.addEventListener('input', () => { g[id] = Object.assign(g[id] || {}, { nota: ta.value }); lsSet(LS_GUIA, g); });
       wrap.appendChild(h('div', { class: 'ficha' }, h('div', { class: 'q' }, q), h('div', { class: 'how' }, how), seg.el, ta, st.respuesta ? h('div', { class: 'resp' }, 'Respuesta: ' + st.respuesta) : null));
     }
-    wrap.appendChild(h('div', { class: 'foot' }, h('button', { class: 'btn primary', onclick: () => { const out = FICHAS.map(([id, q]) => Object.assign({ id, prueba: q }, lsGet(LS_GUIA, {})[id] || {})); Exportar.descargar(new Blob([JSON.stringify({ app: 'VoxStudio Lite ' + VERSION, fecha: new Date().toISOString(), navegador: navigator.userAgent, fichas: out }, null, 2)], { type: 'application/json' }), 'Guia de prueba VoxStudio Lite.json'); } }, icon('download'), 'Descargar resultados')));
+    wrap.appendChild(h('div', { class: 'foot' }, h('button', { class: 'btn primary', onclick: () => { const out = FICHAS.map(([id, q]) => Object.assign({ id, prueba: q }, lsGet(LS_GUIA, {})[id] || {})); Exportar.descargar(new Blob([JSON.stringify({ app: 'EpicStudio Lite ' + VERSION, fecha: new Date().toISOString(), navegador: navigator.userAgent, fichas: out }, null, 2)], { type: 'application/json' }), 'Guia de prueba EpicStudio Lite.json'); } }, icon('download'), 'Descargar resultados')));
     return wrap;
   }
   function acercaDe() {
-    modal({ title: 'VoxStudio Lite', sub: 'Versión ' + VERSION + ' · Áleran Vocals', body: h('div', { class: 'stack' },
+    modal({ title: 'EpicStudio Lite', sub: 'Versión ' + VERSION + ' · Áleran Vocals', body: h('div', { class: 'stack' },
       h('img', { src: 'assets/aleran_logo.png', alt: 'Áleran Vocals', style: { width: '220px', alignSelf: 'center' } }),
-      h('p', { class: 'dim' }, 'La versión web de VoxStudio para los alumnos de Áleran. Todo el procesado (compresores, ecualizador, de-esser, saturación, reverb, delay, limitador y medidor de sonoridad) está escrito desde cero y funciona dentro de tu navegador: tu voz no sale de tu ordenador.'),
+      h('p', { class: 'dim' }, 'La versión web de EpicStudio para los alumnos de Áleran. Todo el procesado (compresores, ecualizador, de-esser, saturación, reverb, delay, limitador y medidor de sonoridad) está escrito desde cero y funciona dentro de tu navegador: tu voz no sale de tu ordenador.'),
       h('p', { class: 'faint', style: { fontSize: '12px' } }, 'Uso exclusivo para alumnos de Áleran Vocals. Codificador MP3: LAME (lamejs, LGPL). Tipografías Inter, Cinzel y JetBrains Mono (OFL).')) });
   }
 
@@ -1488,7 +1488,7 @@
       ['Graba tu voz', 'Escucha y elige estilo', 'Exporta'].forEach((t, i) => tabsS.appendChild(h('button', { class: 'tab' + (ok[i] ? ' done' : '') + (!ok[i] && (i === 0 || ok[i - 1]) ? ' on' : ''), onclick: () => { const c = simple.children[i]; if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, h('span', { class: 'n' }, ok[i] ? '✓' : String(i + 1)), t)));
       btnModo.replaceChildren(icon('sliders'), h('span', { class: 'lbltxt' }, 'Modo avanzado')); btnModo.dataset.ayuda = 'Todos los parámetros de estudio, módulo a módulo.';
     } else {
-      tabsS.appendChild(h('button', { class: 'tab on' }, h('span', { class: 'n' }, 'V'), 'Cadena de voz'));
+      tabsS.appendChild(h('button', { class: 'tab on' }, h('span', { class: 'n' }, 'E'), 'Cadena de voz'));
       tabsS.appendChild(h('button', { class: 'tab', onclick: () => document.getElementById('card-tomas').scrollIntoView({ behavior: 'smooth', block: 'center' }) }, h('span', { class: 'n' }, String(S.tomas.length)), 'Tomas'));
       btnModo.replaceChildren(icon('check'), h('span', { class: 'lbltxt' }, 'Modo sencillo')); btnModo.dataset.ayuda = 'Volver a los tres pasos sencillos.';
     }

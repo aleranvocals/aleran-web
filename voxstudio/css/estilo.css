@@ -1,4 +1,4 @@
-/* VoxStudio Lite · piel «Obsidiana carmesí» (la misma paleta que VoxStudio) */
+/* EpicStudio Lite · piel «Obsidiana carmesí» (la misma paleta que EpicStudio) */
 @font-face { font-family: 'Inter'; src: url('../assets/fonts/Inter-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Inter'; src: url('../assets/fonts/Inter-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
 @font-face { font-family: 'Inter'; src: url('../assets/fonts/Inter-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
@@ -180,7 +180,7 @@ option, optgroup { background: #241b1b; color: var(--text); }
 .knob .val { font: 600 11px var(--mono); color: var(--copperHi); background: var(--well); border-radius: 5px; padding: 2px 6px; min-width: 56px; text-align: center; border: 1px solid #000; }
 .knob.off svg { opacity: 0.45; }
 
-/* ── barra deslizante (estilo VoxStudio) ── */
+/* ── barra deslizante (estilo EpicStudio) ── */
 .bar { display: flex; flex-direction: column; gap: 5px; }
 .bar .track { position: relative; height: 22px; border-radius: 5px; background: var(--well); border: 1px solid #000; box-shadow: inset 0 2px 4px rgba(0,0,0,0.6); cursor: ew-resize; touch-action: none; overflow: hidden; }
 .bar .fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #6a2a2b, #b9635e); border-right: 2px solid var(--copperHi); }

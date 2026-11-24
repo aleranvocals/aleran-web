@@ -1,4 +1,4 @@
-/* VoxStudio Lite · análisis de la voz y de la base: mezcla automática, tempo y formas de onda. */
+/* EpicStudio Lite · análisis de la voz y de la base: mezcla automática, tempo y formas de onda. */
 (function () {
   'use strict';
   const D = window.VoxDSP;

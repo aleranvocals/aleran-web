@@ -1,9 +1,9 @@
 /* ─────────────────────────────────────────────────────────────────────────────
- *  PRESETS DE ÁLERAN  ·  VoxStudio Lite
+ *  PRESETS DE ÁLERAN  ·  EpicStudio Lite
  *
  *  Estos son los estilos que ven tus alumnos en «Elige estilo».
  *  Cómo añadir uno tuyo (sin tocar nada más):
- *    1. En VoxStudio Lite, modo avanzado, deja la voz como te guste.
+ *    1. En EpicStudio Lite, modo avanzado, deja la voz como te guste.
  *    2. Pulsa «Guardar preset» → «Descargar archivo». Se baja un .json.
  *    3. Abre ese .json, copia lo que hay dentro de "params": { … }
  *       y pégalo aquí como un estilo nuevo (copia uno de abajo y cambia nombre y textos).

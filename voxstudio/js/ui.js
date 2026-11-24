@@ -1,4 +1,4 @@
-/* VoxStudio Lite · piezas de la interfaz (perillas, barras, botones, ventanas, avisos). */
+/* EpicStudio Lite · piezas de la interfaz (perillas, barras, botones, ventanas, avisos). */
 (function () {
   'use strict';
 
@@ -151,7 +151,7 @@
     return { el, set: (v) => set(v, false), get: () => value, setEnabled: (b) => el.classList.toggle('off', !b) };
   }
 
-  // ── barra deslizante (como «CANTIDAD 80 %» de VoxStudio) ──
+  // ── barra deslizante (como «CANTIDAD 80 %» de EpicStudio) ──
   function Bar(o) {
     const m = mapper(o); let value = o.value !== undefined ? o.value : o.def;
     const fill = h('div', { class: 'fill' }), txt = h('div', { class: 'txt' });

@@ -1,4 +1,4 @@
-/* VoxStudio Lite · archivos de salida: WAV (16/24 bits, con dither) y MP3 (lamejs en un Worker). */
+/* EpicStudio Lite · archivos de salida: WAV (16/24 bits, con dither) y MP3 (lamejs en un Worker). */
 (function () {
   'use strict';
   // carpeta raíz de la app (este archivo está en js/), para encontrar vendor/ desde cualquier página

@@ -1,4 +1,4 @@
-/* VoxStudio Lite · motor de audio (DSP) escrito desde cero.
+/* EpicStudio Lite · motor de audio (DSP) escrito desde cero.
  *
  * Un solo archivo sirve para tres sitios:
  *   1. el AudioWorklet del navegador (la página lo carga como Blob con voxdspModule.toString());
