@@ -75,6 +75,55 @@
 
   /* Mezcla automática: mira la voz grabada (y la base) y ajusta los parámetros de corrección
    * sobre el estilo elegido. Devuelve { params, notas: [texto para el alumno] }. */
+  // Voz de móvil → micro de estudio. Curva media de 4 voces de estudio (Áleran ×2, Kenji, Camilo), cada media octava de 160 Hz
+  // a 10 kHz, normalizada a la media de 640–1810 Hz, y cuánto varía entre ellas (eso es timbre de cada cantante: no se toca).
+  const MICRO_F = [160, 226, 320, 453, 640, 905, 1280, 1810, 2560, 3620, 5120, 7241, 10240];
+  const MICRO_T = [-11.4, -5.3, -2.7, -0.6, 2.5, 1.4, -0.8, -3.0, -7.3, -13.1, -18.4, -22.1, -26.7];
+  const MICRO_V = [7.0, 7.4, 6.3, 3.9, 2.2, 1.9, 1.3, 3.1, 5.0, 5.5, 5.4, 4.6, 3.4];
+  // zona muerta = la mitad de esa variación (medido: con la variación entera no se corregía el pico de presencia típico del móvil)
+  const MICRO_ZM = +(typeof process !== "undefined" && process.env && process.env.MICRO_ZM) || 0.5;
+  function analizarMicro(spec, F, sr, x, frames, floor, loud, f0s) {
+    const binF = (k) => k * sr / F;
+    // espectro de tu voz cantada, una octava alrededor de cada centro (suavizado fuerte)
+    const U = MICRO_F.map((c) => { let e = 0, n = 0; for (let k = Math.ceil(c / Math.SQRT2 * F / sr); k < c * Math.SQRT2 * F / sr && k < F / 2; k++) { e += spec[k]; n++; } return 10 * Math.log10(e / Math.max(1, n) + 1e-30); });
+    const ref = (U[4] + U[5] + U[6] + U[7]) / 4; for (let i = 0; i < 13; i++) U[i] -= ref;
+    // corte de agudos: la frecuencia más alta con energía a menos de 55 dB del máximo (espectro suavizado a 1/3 de octava)
+    const sm = new Float64Array(F / 2);
+    for (let k = 1; k < F / 2; k++) { const a = Math.max(1, Math.floor(k / 1.122)), b = Math.min(F / 2 - 1, Math.ceil(k * 1.122)); let e = 0; for (let j = a; j <= b; j++) e += spec[j]; sm[k] = 10 * Math.log10(e / (b - a + 1) + 1e-30); }
+    let pk = -400; for (let k = 1; k < F / 2; k++) { const f = binF(k); if (f > 200 && f < 4000 && sm[k] > pk) pk = sm[k]; }
+    let corte = binF(F / 2 - 1); for (let k = F / 2 - 1; k > 1; k--) if (sm[k] > pk - 55) { corte = binF(k); break; }
+    const nyq = sr / 2, sinCorte = corte > Math.min(16500, nyq * 0.85);
+    // nota más grave (como el corte de graves de la mezcla): por debajo no se sube nada
+    let hpf = 90; if (f0s && f0s.length > 5) { const fs2 = f0s.slice().sort((a, b) => a - b), med = fs2[Math.floor(fs2.length / 2)], fi = fs2.filter((f) => f >= med / 1.9); hpf = D.clamp(fi[Math.floor(fi.length * 0.05)] * 0.6, 60, 120); }
+    // corrección: solo lo que se sale de lo normal entre voces de estudio (zona muerta = su variación), ±6 dB
+    let curva = MICRO_F.map((c, i) => { const d = MICRO_T[i] - U[i]; return D.clamp(Math.max(0, Math.abs(d) - MICRO_ZM * MICRO_V[i]) * Math.sign(d), -6, 6); });
+    curva = curva.map((v, i) => (0.25 * (curva[i - 1] !== undefined ? curva[i - 1] : v) + 0.5 * v + 0.25 * (curva[i + 1] !== undefined ? curva[i + 1] : v)));
+    // DESPUÉS del suavizado: nada por encima de lo que el móvil captó (eso lo hacen los «Agudos») ni a menos de una octava
+    // del corte de graves (ahí casi todo es ruido y golpes de micro, sobre todo en voces agudas)
+    curva = curva.map((v, i) => ((MICRO_F[i] >= corte * 0.7 || MICRO_F[i] < hpf * 2) ? 0 : Math.round(v * 10) / 10));
+    // ruido: tramos más silenciosos de la toma (hasta 10 s) → nivel por bandas de la limpieza
+    // solo cuenta como ruido lo que de verdad es silencio: 35 dB por debajo de lo fuerte de tu voz (si cantas sin pausas, no se aprende)
+    // referencia de la voz: el 1 % más fuerte (el percentil 95 de toda la toma cae en el silencio si cantas poco rato)
+    const vozRef = Math.max(loud, frames.map((f) => f.db).sort((a, b) => a - b)[Math.floor(frames.length * 0.99)]);
+    // silencio digital (ceros) de más de medio segundo = pista limpia y editada: no hay ruido que quitar. Si no lo hay, el ruido
+    // se busca en los tramos más silenciosos CON señal (los ceros sueltos del principio o del final no cuentan como ruido)
+    const conSenal = frames.filter((f) => f.db > -110), ceros = frames.length - conSenal.length;
+    const suelo = conSenal.length ? conSenal.map((f) => f.db).sort((a, b) => a - b)[Math.floor(conSenal.length * 0.1)] : floor;
+    const quietos = ceros * 1024 > sr * 0.5 ? [] : conSenal.filter((f) => f.db < Math.min(suelo + 3, vozRef - 35)).slice(0, Math.round(10 * sr / 1024));
+    let ruidoBandas = [-200, -200, -200, -200];
+    if (quietos.length * 1024 > sr * 0.5) ruidoBandas = D.Corrector.bandasRMS(sr, x, quietos.map((f) => ({ i: f.i, n: 2048 }))).map((v) => Math.round(v * 10) / 10); // cada trozo por separado
+    let ruidoRel = -99; if (quietos.length * 1024 > sr * 0.5) { let e = 0; for (const f of quietos) e += Math.pow(10, f.db / 10); ruidoRel = 10 * Math.log10(e / quietos.length) - vozRef; } // ruido frente a lo fuerte de tu voz (−99 = no se pudo medir)
+    const movil = (!sinCorte && corte < 13000) || ruidoRel > -50;
+    const curvaEn = (f) => { if (f <= MICRO_F[0]) return curva[0] * (f > hpf ? 1 : 0); if (f >= MICRO_F[12]) return curva[12]; let i = 0; while (MICRO_F[i + 1] < f) i++; const t = Math.log2(f / MICRO_F[i]) * 2; return curva[i] + (curva[i + 1] - curva[i]) * t; };
+    // limpieza al 50 % siempre que haya ruido medido: solo baja lo que está cerca del ruido, así que es inofensiva si hay poco
+    const params = { on: movil, cantidad: 70, ruido: ruidoRel > -98 ? 50 : 0, brillo: (!sinCorte && corte < 14500) ? 50 : 0, curva, corte: sinCorte ? 0 : Math.round(corte / 50) * 50, ruidoBandas };
+    const cosas = []; if (!sinCorte && corte < 14500) cosas.push(`se corta en ${UI.fmt.hz(corte)}`); if (ruidoRel > -55) cosas.push(`ruido de fondo alto (${Math.round(ruidoRel)} dB bajo tu voz)`);
+    const fuera = curva.map((v, i) => [Math.abs(v), MICRO_F[i], v]).sort((a, b) => b[0] - a[0])[0];
+    if (fuera[0] >= 1.5) cosas.push(`${fuera[2] > 0 ? 'le falta' : 'le sobra'} ${UI.fmt.hz(fuera[1])}`);
+    const texto = movil ? `Tu voz parece grabada con móvil o un micro sencillo (${cosas.join(', ') || 'sonido de micro sencillo'}): activo «Voz de móvil» para acercarla a un micro de estudio.` : '';
+    return { params, info: { movil, corte: Math.round(corte), ruidoRel: Math.round(ruidoRel), texto }, curvaEn };
+  }
+
   async function autoMezcla(motor, params) {
     const notas = [], extra = {};
     const p = JSON.parse(JSON.stringify(params));
@@ -122,6 +171,15 @@
       for (let k = 1; k < s.length; k++) { const a = Math.max(1, Math.floor(k / Math.pow(2, 0.5 / frac))), b = Math.min(s.length - 1, Math.ceil(k * Math.pow(2, 0.5 / frac))); let e = 0; for (let j = a; j <= b; j++) e += s[j]; out[k] = 10 * Math.log10(e / (b - a + 1) + 1e-20); }
       return out;
     };
+    // 3b. ¿voz de móvil o micro sencillo? (24/11) — curva frente a la media de 4 voces de estudio, corte de agudos y ruido
+    { const cor = analizarMicro(spec, F, sr, x, frames, floor, loud, f0s);
+      p.corrector = Object.assign({}, p.corrector, cor.params); extra.corrector = cor.info;
+      if (cor.params.on) {
+        notas.push(cor.info.texto);
+        // las demás decisiones se toman sobre la voz YA corregida (si no, se corregiría dos veces)
+        for (let k = 1; k < F / 2; k++) spec[k] *= Math.pow(10, cor.curvaEn(k * sr / F) * cor.params.cantidad / 100 / 10);
+      }
+    }
     const S3 = smooth(spec, 3), S12 = smooth(spec, 12), S2 = smooth(spec, 2);
     // recta de tendencia (dB frente a octavas) entre 200 Hz y 8 kHz
     let sx = 0, sy = 0, sxx = 0, sxy = 0, cnt = 0;
@@ -150,7 +208,8 @@
     else if (pres < -2) { const g0 = B[4].g; B[4].g = Math.min(4, B[4].g + D.clamp(-pres * 0.6, 0.5, 3)); extra.pres = B[4].g - g0; notas.push('Le falta presencia: subo un poco la zona de 3 kHz.'); }
     // aire
     // el aire se calcula siempre (por si luego cambias a un estilo sin Realce), pero con el Realce encendido no se aplica: el Realce ya lo da (24/11)
-    if (mean(8000, 13000) < -4) { extra.aire = Math.min(5, B[6].g + 1.5) - B[6].g; if (!(p.realce && p.realce.on)) { B[6].g += extra.aire; notas.push('Le falta aire arriba: subo el brillo un poco.'); } }
+    // con «Voz de móvil» regenerando agudos no se añade aire (24/11)
+    if (mean(8000, 13000) < -4 && !(p.corrector && p.corrector.on && p.corrector.brillo > 0 && p.corrector.corte > 0)) { extra.aire = Math.min(5, B[6].g + 1.5) - B[6].g; if (!(p.realce && p.realce.on)) { B[6].g += extra.aire; notas.push('Le falta aire arriba: subo el brillo un poco.'); } }
     // resonancia estrecha (picos que sobresalen del entorno)
     let rf = 0, rv = 0;
     for (let k = kOf(250); k <= kOf(5000); k++) { const d = S12[k] - S2[k]; if (d > rv) { rv = d; rf = binF(k); } }

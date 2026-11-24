@@ -1243,12 +1243,144 @@ function voxdspModule() {
     volverACero() { return Math.abs(this.g) <= this.slew ? 0 : this.g - Math.sign(this.g) * this.slew; }
   }
 
+  // ───────────────────────── Voz de móvil → micro de estudio (24/11) ─────────────────────────
+  // Para tomas grabadas con el móvil o un micro sencillo. Tres partes, SIN latencia (se puede escuchar mientras grabas):
+  //  1. Limpieza de ruido en 4 bandas (cruces Linkwitz-Riley en 300, 2000 y 6000 Hz): cada banda baja solo cuando su nivel
+  //     cae cerca del ruido aprendido en los silencios de la toma («ruidoBandas», dBFS RMS de la toma en bruto).
+  //  2. EQ hacia una curva de micro de estudio: 13 campanas cada media octava (160 Hz–10 kHz) que dibujan «curva» (la calcula la
+  //     mezcla automática: solo lo que se sale de lo normal entre voces de estudio, ±6 dB), ajustadas por mínimos cuadrados.
+  //  3. Agudos por encima del «corte» del móvil: armónicos generados desde la octava de debajo, siguiendo el nivel de la voz.
+  const CORR_F = [160, 226, 320, 453, 640, 905, 1280, 1810, 2560, 3620, 5120, 7241, 10240];
+  class Corrector {
+    constructor(fs) {
+      this.fs = fs; const bq2 = () => [new Biquad(), new Biquad()];
+      this.eq = CORR_F.map(() => new Biquad()); this.gT = new Float64Array(13); this.gC = new Float64Array(13); this.cnt = 0; this.mov = true; this.eqAct = false;
+      // bandas de la limpieza: 2000 Hz primero; la rama grave pasa por el paso-todo de 6000 y la aguda por el de 300 antes de
+      // dividirse, así la suma de las 4 bandas es un paso-todo puro (plana) cuando no se baja nada
+      const LR = (t, f) => { const a = bq2(); for (const b of a) b.set(design(t, f, Math.SQRT1_2, 0, fs)); return a; };
+      this.sL = LR('lowpass', 2000); this.sH = LR('highpass', 2000);
+      this.ap6L = LR('lowpass', 6000); this.ap6H = LR('highpass', 6000); this.ap3L = LR('lowpass', 300); this.ap3H = LR('highpass', 300);
+      this.aL = LR('lowpass', 300); this.aH = LR('highpass', 300); this.bL = LR('lowpass', 6000); this.bH = LR('highpass', 6000);
+      this.B = new Float64Array(4); this.env = new Float64Array(4); this.gn = new Float64Array(4); this.thr = new Float64Array(4).fill(-200); this.rango = 0; this.hayRuido = false;
+      this.aEnv = coefFor(0.005, fs); this.aOpen = coefFor(0.003, fs); this.aClose = coefFor(0.08, fs);
+      this.xs = [new Biquad(), new Biquad()]; this.xh = []; this.xl = new Biquad(); this.eS = 0; this.eH = 0; this.aX = coefFor(0.02, fs); this.corteSet = -1; this.agudos = false;
+      this.aW = coefFor(0.015, fs); this.aG = coefFor(0.03, fs); this.w = 0; this.on = false; this.wasOn = false; this.p = null; this.grMin = 0;
+      // frecuencias de la EQ que caben por debajo de Nyquist (con 16 kHz o menos, las de arriba no existen: matriz singular → NaN)
+      this.usa = CORR_F.map((f) => f < fs * 0.45);
+    }
+    reset() { // al encender: sin estados viejos de otra parte de la canción
+      const todos = [...this.eq, ...this.sL, ...this.sH, ...this.ap6L, ...this.ap6H, ...this.ap3L, ...this.ap3H, ...this.aL, ...this.aH, ...this.bL, ...this.bH, ...this.xs, ...this.xh, this.xl];
+      for (const b of todos) b.reset(); this.env.fill(0); this.gn.fill(0); this.eS = 0; this.eH = 0;
+    }
+    set(p, inG) {
+      const fs = this.fs; this.p = p; this.on = !!p.on;
+      if (this.on && !this.wasOn) this.reset(); this.wasOn = this.on;
+      const c = clamp(num0(p.cantidad, 70), 0, 100) / 100, cur = Array.isArray(p.curva) ? p.curva : [];
+      const idx = []; for (let k = 0; k < 13; k++) if (this.usa[k]) idx.push(k);
+      const Dd = idx.map((k) => clamp(num0(cur[k], 0), -12, 12) * c);
+      const g = new Float64Array(13);
+      if (Dd.some((v) => v !== 0)) {
+        // las campanas se solapan: sus ganancias se resuelven para que la SUMA pase por la curva pedida en cada centro
+        // (sistema lineal con la influencia de una campana de +1 dB en cada centro, Gauss con pivote; luego 3 refinados)
+        const fz = idx.map((k) => CORR_F[k]), n = idx.length;
+        if (!this.M) this.M = fz.map((fi) => fz.map((fj) => 20 * Math.log10(biquadMag(design('peak', fj, 1.4, 1, fs), fi, fs))));
+        const resolver = (rhs) => {
+          const A = this.M.map((r, i) => [...r, rhs[i]]);
+          for (let col = 0; col < n; col++) { let pv = col; for (let r = col + 1; r < n; r++) if (Math.abs(A[r][col]) > Math.abs(A[pv][col])) pv = r; [A[col], A[pv]] = [A[pv], A[col]];
+            if (Math.abs(A[col][col]) < 1e-9) return null;
+            for (let r = 0; r < n; r++) if (r !== col) { const f = A[r][col] / A[col][col]; for (let q = col; q <= n; q++) A[r][q] -= f * A[col][q]; } }
+          return A.map((r, i) => r[n] / r[i]);
+        };
+        const gi = resolver(Dd) || Dd.slice(); const gg = gi.map((v) => clamp(v, -15, 15));
+        for (let it = 0; it < 3; it++) {
+          const cs = fz.map((f, a) => design('peak', f, 1.4, gg[a], fs));
+          const err = fz.map((f, a) => Dd[a] - cs.reduce((acc, cc) => acc + 20 * Math.log10(biquadMag(cc, f, fs)), 0));
+          const dg = resolver(err); if (!dg) break; for (let a = 0; a < n; a++) gg[a] = clamp(gg[a] + dg[a], -15, 15);
+        }
+        idx.forEach((k, a) => { g[k] = isFinite(gg[a]) ? gg[a] : 0; });
+      }
+      for (let k = 0; k < 13; k++) this.gT[k] = g[k]; this.mov = true;
+      this.rango = clamp(num0(p.ruido, 50), 0, 100) / 100 * 20; // hasta 20 dB
+      const rb = Array.isArray(p.ruidoBandas) ? p.ruidoBandas : [];
+      for (let b = 0; b < 4; b++) { const v = num0(rb[b], -200); this.thr[b] = v > -150 ? v + num0(inG, 0) + 8 : -200; } // 8 dB por encima del ruido aprendido
+      this.hayRuido = Array.from(this.thr).some((t) => t > -150);
+      const corte = num0(p.corte, 0); this.brillo = clamp(num0(p.brillo, 50), 0, 100) / 100;
+      this.agudos = corte >= 3000 && corte <= 14500 && corte < fs * 0.42 && this.brillo > 0;
+      if (this.agudos && Math.abs(corte - this.corteSet) > 1) {
+        this.corteSet = corte;
+        this.xs[0].set(design('highpass', corte / 2, Math.SQRT1_2, 0, fs)); this.xs[1].set(design('lowpass', corte * 0.95, Math.SQRT1_2, 0, fs));
+        this.xh = butterworthStages('hp', corte, 36, fs).map((h) => new Biquad(h));
+        this.xl.set(design('lowpass', Math.min(fs * 0.45, corte * 1.9), Math.SQRT1_2, 0, fs));
+      }
+    }
+    process(x) {
+      const tgt = this.on ? 1 : 0;
+      if (!this.on && this.w === 0) return x;
+      this.w = this.aW * this.w + (1 - this.aW) * tgt; if (Math.abs(this.w - tgt) < 1e-4) this.w = tgt;
+      // 1. limpieza por bandas: con el módulo encendido SIEMPRE pasa por las bandas (sin ruido medido o con «Quitar ruido» a 0,
+      //    las ganancias son 0 dB y la suma es plana), así no hay salto al mover el mando ni al llegar la mezcla automática
+      const lo0 = this.sL[1].process(this.sL[0].process(x)), hi0 = this.sH[1].process(this.sH[0].process(x));
+      const lo = this.ap6L[1].process(this.ap6L[0].process(lo0)) + this.ap6H[1].process(this.ap6H[0].process(lo0));
+      const hi = this.ap3L[1].process(this.ap3L[0].process(hi0)) + this.ap3H[1].process(this.ap3H[0].process(hi0));
+      const B = this.B; B[0] = this.aL[1].process(this.aL[0].process(lo)); B[1] = this.aH[1].process(this.aH[0].process(lo));
+      B[2] = this.bL[1].process(this.bL[0].process(hi)); B[3] = this.bH[1].process(this.bH[0].process(hi));
+      const activa = this.rango > 0 && this.hayRuido;
+      let y = 0;
+      for (let b = 0; b < 4; b++) {
+        let t = 0;
+        if (activa && this.thr[b] > -150) {
+          this.env[b] = this.aEnv * this.env[b] + (1 - this.aEnv) * B[b] * B[b];
+          const d = 10 * Math.log10(this.env[b] + 1e-20); if (d < this.thr[b]) t = Math.max(-this.rango, d - this.thr[b]); // expansión 1:2 bajo el umbral
+        }
+        const a = t > this.gn[b] ? this.aOpen : this.aClose; this.gn[b] = a * this.gn[b] + (1 - a) * t;
+        if (this.gn[b] < this.grMin) this.grMin = this.gn[b];
+        y += this.gn[b] > -0.01 ? B[b] : B[b] * dbToLin(this.gn[b]);
+      }
+      // 2. EQ hacia el micro de estudio (las ganancias se mueven suaves: sin clics al cambiar de toma o de cantidad)
+      if (this.mov && (this.cnt++ & 31) === 0) {
+        let quieto = true; this.eqAct = false;
+        for (let k = 0; k < 13; k++) {
+          const d = this.gT[k] - this.gC[k]; if (Math.abs(d) > 0.01) { this.gC[k] += d * (1 - Math.pow(this.aG, 32)); quieto = false; } else this.gC[k] = this.gT[k];
+          if (Math.abs(this.gC[k]) < 0.01) this.eq[k].set(BQ_ID); else { this.eq[k].set(design('peak', CORR_F[k], 1.4, this.gC[k], this.fs)); this.eqAct = true; }
+        }
+        if (quieto) this.mov = false;
+      }
+      if (this.eqAct) for (let k = 0; k < 13; k++) if (this.gC[k] !== 0) y = this.eq[k].process(y);
+      // 3. agudos por encima del corte del móvil: armónicos (rectificado) de la octava de debajo, al nivel de esa octava −9 dB
+      if (this.agudos) {
+        const s0 = this.xs[1].process(this.xs[0].process(y)); let h = s0 < 0 ? -s0 : s0; for (let k = 0; k < this.xh.length; k++) h = this.xh[k].process(h); h = this.xl.process(h);
+        this.eS = this.aX * this.eS + (1 - this.aX) * s0 * s0; this.eH = this.aX * this.eH + (1 - this.aX) * h * h;
+        if (this.eH > 1e-14) y += h * Math.sqrt(this.eS / this.eH) * 0.355 * this.brillo;
+      }
+      if (!(y === y)) { this.reset(); y = x; } // por si acaso: nunca deja un NaN pegado
+      return this.w * y + (1 - this.w) * x;
+    }
+    takeGr() { const g = this.grMin; this.grMin = 0; return g; }
+    // para la mezcla automática: nivel RMS (dBFS) de cada banda de la limpieza en unos trozos de señal. Cada trozo se mide
+    // por separado (filtros calentados con su primer cuarto): coser trozos sueltos metería saltos con energía en agudos.
+    static bandasRMS(fs, x, trozos) {
+      const lista = trozos || [{ i: 0, n: x.length }], e = [0, 0, 0, 0]; let cuenta = 0;
+      for (const t of lista) {
+        const c = new Corrector(fs), cal = Math.floor(t.n / 4), B = [0, 0, 0, 0];
+        for (let j = 0; j < t.n; j++) {
+          const v = x[t.i + j] || 0, lo0 = c.sL[1].process(c.sL[0].process(v)), hi0 = c.sH[1].process(c.sH[0].process(v));
+          const lo = c.ap6L[1].process(c.ap6L[0].process(lo0)) + c.ap6H[1].process(c.ap6H[0].process(lo0)), hi = c.ap3L[1].process(c.ap3L[0].process(hi0)) + c.ap3H[1].process(c.ap3H[0].process(hi0));
+          B[0] = c.aL[1].process(c.aL[0].process(lo)); B[1] = c.aH[1].process(c.aH[0].process(lo)); B[2] = c.bL[1].process(c.bL[0].process(hi)); B[3] = c.bH[1].process(c.bH[0].process(hi));
+          if (j >= cal) { for (let b = 0; b < 4; b++) e[b] += B[b] * B[b]; cuenta++; }
+        }
+      }
+      return e.map((v) => 10 * Math.log10(v / Math.max(1, cuenta) + 1e-20));
+    }
+  }
+  const BQ_ID = { b0: 1, b1: 0, b2: 0, a1: 0, a2: 0 };
+
   // ───────────────────────── parámetros por defecto ─────────────────────────
   function defaultParams() {
     return {
       version: 1,
       entrada: { ganancia: 0, fase: false },
       limpieza: { on: false, umbral: -50, rango: 12, ataque: 1, relajacion: 150 },
+      corrector: { on: false, cantidad: 70, ruido: 50, brillo: 50, curva: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], corte: 0, ruidoBandas: [-200, -200, -200, -200] },
       realce: { on: false, perfil: 'grave', cantidad: 60 },
       armonicos: { on: false, modo: 'sigue', nota: 'La', ganancia: 6, ancho: 8, desde: 330 },
       eq: { on: true, bandas: [
@@ -1311,6 +1443,9 @@ function voxdspModule() {
     const bo = (o, k) => { o[k] = !!o[k]; };
     n(p.entrada, 'ganancia', -24, 36); bo(p.entrada, 'fase');
     const L = p.limpieza; bo(L, 'on'); n(L, 'umbral', -80, -20); n(L, 'rango', 0, 40); n(L, 'ataque', 0.1, 50); n(L, 'relajacion', 10, 2000);
+    const CO = p.corrector; bo(CO, 'on'); n(CO, 'cantidad', 0, 100); n(CO, 'ruido', 0, 100); n(CO, 'brillo', 0, 100); n(CO, 'corte', 0, 24000);
+    CO.curva = Array.from({ length: 13 }, (_, i) => clamp(Array.isArray(CO.curva) && isFinite(CO.curva[i]) ? +CO.curva[i] : 0, -12, 12));
+    CO.ruidoBandas = Array.from({ length: 4 }, (_, i) => clamp(Array.isArray(CO.ruidoBandas) && isFinite(CO.ruidoBandas[i]) ? +CO.ruidoBandas[i] : -200, -200, 0));
     const RZ = p.realce; bo(RZ, 'on'); e(RZ, 'perfil', ['grave', 'aguda'], 'grave'); n(RZ, 'cantidad', 0, 100);
     const AR = p.armonicos; bo(AR, 'on'); e(AR, 'modo', ['sigue', 'fija'], 'sigue'); e(AR, 'nota', NOTAS, 'La'); n(AR, 'ganancia', 0, 12); n(AR, 'ancho', 1, 30); n(AR, 'desde', 60, 1500);
     const SV = p.suavizador; bo(SV, 'on'); n(SV, 'cantidad', 0, 100); n(SV, 'nitidez', 0, 100); n(SV, 'desde', 200, 16000); n(SV, 'hasta', 400, 20000); n(SV, 'relajacion', 20, 500);
@@ -1351,7 +1486,7 @@ function voxdspModule() {
   class VoxEngine {
     constructor(fs) {
       this.fs = fs;
-      this.gate = new Gate(fs); this.rz = new Realce(fs); this.ar = new Armonicos(fs); this.sv = new Suavizador(fs); this.eq = new Equalizer(fs); this.ds = new DeEsser(fs);
+      this.gate = new Gate(fs); this.cor = new Corrector(fs); this.rz = new Realce(fs); this.ar = new Armonicos(fs); this.sv = new Suavizador(fs); this.eq = new Equalizer(fs); this.ds = new DeEsser(fs);
       this.c1 = new Compressor(fs); this.c2 = new Compressor(fs); this.sat = new Saturator(fs);
       this.rider = new Rider(fs); this.dbl = new Doubler(fs); this.dly = new StereoDelay(fs); this.rev = new Reverb(fs);
       this.lim = new Limiter(fs); this.lufs = new LufsMeter(fs, 2);
@@ -1370,7 +1505,7 @@ function voxdspModule() {
     setParams(p) {
       p = prepararParams(p);
       this.p = p; const fs = this.fs;
-      this.gate.set(p.limpieza); this.rz.set(p.realce); this.ar.set(p.armonicos); this.sv.set(p.suavizador); this.eq.set(p.eq); this.ds.set(p.deesser);
+      this.cor.set(p.corrector, p.entrada.ganancia); this.gate.set(p.limpieza); this.rz.set(p.realce); this.ar.set(p.armonicos); this.sv.set(p.suavizador); this.eq.set(p.eq); this.ds.set(p.deesser);
       this.c1.set(p.comp1); this.c2.set(p.comp2); this.sat.set(p.sat);
       this.rider.set(p.rider); this.dbl.set(p.doblador); this.dly.set(p.delay, p.bpm); this.rev.set(p.reverb);
       this.lim.set(p.master);
@@ -1405,7 +1540,7 @@ function voxdspModule() {
         // las dos rutas se alimentan siempre: al cambiar Bypass no suena lo que quedaba guardado
         this.rawD.write(x); const vSeca = this.rawD.read(this.vLat);
         {
-          v = this.gate.process(x);
+          v = this.gate.process(this.cor.process(x));
           v = this.rz.process(v);
           v = this.eq.process(v);
           v = this.ar.process(v);
@@ -1468,7 +1603,7 @@ function voxdspModule() {
       const m = this.meters; this.meters = this.newMeters();
       return {
         entrada: linToDb(m.entrada), voz: linToDb(m.voz), base: linToDb(m.base), mL: linToDb(m.mL), mR: linToDb(m.mR),
-        gr: { puerta: this.gate.takeGr(), realce: this.rz.takeGr(), suavizador: this.sv.takeGr(), deesser: this.ds.takeGr(), c1: this.c1.takeGr(), c2: this.c2.takeGr(), lim: this.lim.takeGr() },
+        gr: { corrector: this.cor.takeGr(), puerta: this.gate.takeGr(), realce: this.rz.takeGr(), suavizador: this.sv.takeGr(), deesser: this.ds.takeGr(), c1: this.c1.takeGr(), c2: this.c2.takeGr(), lim: this.lim.takeGr() },
         eqDin: this.eq.dynOut.slice(), rider: linToDb(this.rider.p.on ? dbToLin(this.rider.g) : 1),
         nota: this.ar.takeNota(), lufsM: this.lufs.momentary, lufsS: this.lufs.shortTerm,
       };
@@ -1478,7 +1613,7 @@ function voxdspModule() {
   const api = {
     dbToLin, linToDb, clamp, design, biquadMag, Biquad, butterworthStages, bandStages, eqResponseDb, DelayLine,
     Upsampler4, Downsampler4, OS_H, kWeighting, LufsMeter, truePeak, analyzeLoudness, gainComputer, compStatic, compTransfer, FET_TABLE,
-    Compressor, Gate, Realce, FFT, Suavizador, Armonicos, NOTAS, notaHz, Equalizer, DeEsser, Saturator, Doubler, StereoDelay, PlateReverb, FdnReverb, Reverb, Limiter, Rider,
+    Compressor, Gate, Corrector, Realce, FFT, Suavizador, Armonicos, NOTAS, notaHz, Equalizer, DeEsser, Saturator, Doubler, StereoDelay, PlateReverb, FdnReverb, Reverb, Limiter, Rider,
     VoxEngine, defaultParams, mergeParams, validarParams, prepararParams, DIVISIONES, delaySeconds,
   };
 

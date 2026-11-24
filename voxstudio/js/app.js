@@ -36,6 +36,7 @@
     [0, 3, 5].forEach((i) => { p.eq.bandas[i] = clone(a.eq.bandas[i]); });
     if (a.eq.bandas[2].on) { p.eq.bandas[2].f = a.eq.bandas[2].f; p.eq.bandas[2].g = Math.min(p.eq.bandas[2].g, a.eq.bandas[2].g); }
     p.deesser.fMin = a.deesser.fMin; p.deesser.fMax = a.deesser.fMax; if (a.deesser.on) p.deesser.on = true;
+    if (a.corrector) p.corrector = clone(a.corrector); // «Voz de móvil» es de tu micro, no del estilo
     const ex = S.autoExtra || {}; if (ex.pres) p.eq.bandas[4].g = Math.min(6, p.eq.bandas[4].g + ex.pres); if (ex.aire && !p.realce.on) p.eq.bandas[6].g = Math.min(6, p.eq.bandas[6].g + ex.aire);
     p.voz.volumen = a.voz.volumen; p.base.volumen = a.base.volumen; p.base.huecoFreq = a.base.huecoFreq;
     return p;
@@ -124,7 +125,15 @@
   function when(el, fn) { VIS.push({ el, fn }); return el; }
   function refresh() {
     for (const r of REG) { const v = val(r.src, r.path); if (v !== undefined) r.w.set(v); }
-    visibilidad(); dibujarEq(); dibujarCurvas(); actualizarPresetUI(); actualizarCabecera();
+    visibilidad(); dibujarEq(); dibujarCurvas(); actualizarPresetUI(); actualizarCabecera(); infoMovil();
+  }
+  // qué ha medido la mezcla automática de tu micro (tarjeta «Voz de móvil»)
+  function limpiarInfoMovil(i) { if (!i || typeof i !== 'object') return undefined; return { movil: !!i.movil, corte: D.clamp(+i.corte || 0, 0, 24000), ruidoRel: D.clamp(+i.ruidoRel || -99, -99, 0), texto: String(i.texto || '').slice(0, 300) }; }
+  function infoMovil() {
+    const el = document.getElementById('corInfo'); if (!el) return; const i = S.autoExtra && S.autoExtra.corrector, c = S.params.corrector;
+    if (!i) { el.textContent = 'Haz la mezcla automática (se hace sola al grabar) para que mida tu micro.'; return; }
+    const curva = (c.curva || []).map((v, k) => [v, [160, 226, 320, 453, 640, 905, 1280, 1810, 2560, 3620, 5120, 7241, 10240][k]]).filter((q) => Math.abs(q[0]) >= 1).map((q) => (q[0] > 0 ? '+' : '') + num(q[0]) + ' dB en ' + fmt.hz(q[1]));
+    el.textContent = (i.movil ? 'Parece un móvil o un micro sencillo. ' : 'Tu micro suena a estudio: no hace falta (puedes encenderlo igual). ') + 'Agudos hasta ' + fmt.hz(i.corte) + ' · ' + (i.ruidoRel > -98 ? 'ruido de fondo ' + i.ruidoRel + ' dB bajo tu voz' : 'sin silencios para medir el ruido') + (curva.length ? ' · EQ: ' + curva.join(', ') : '') + '.';
   }
   function visibilidad() { for (const v of VIS) v.el.classList.toggle('hidden', !v.fn(S.params)); for (const c of CARDS) c.upd(); }
 
@@ -193,6 +202,7 @@
   }
 
   function colSimple() {
+    const movilSw = Switch({ value: S.params.corrector.on, ayuda: 'Encender «Voz de móvil»', onChange: (v) => cambio('p', 'corrector.on', v) }); bind('p', 'corrector.on', movilSw);
     const c1 = h('div', { class: 'panel stack' },
       h('div', { class: 'phead' }, h('div', { class: 'stepnum', id: 'st1' }, '1'), h('div', null, h('h2', null, 'Graba tu voz'), h('div', { class: 'sub' }, 'Carga la base y graba encima. O arrastra tus archivos.'))),
       h('button', { class: 'btn lg block', ayuda: 'Carga la base instrumental sobre la que vas a cantar.', onclick: () => elegirArchivo('base') }, icon('music'), 'Cargar la base'),
@@ -202,6 +212,7 @@
         h('button', { class: 'btn primary lg grow', ayuda: 'Grabar tu voz mientras suena la base. Usa auriculares.', onclick: () => abrirGrabacion() }, icon('rec'), 'Grabar'),
         h('button', { class: 'btn lg', ayuda: 'Si ya grabaste tu voz en otro sitio, cárgala aquí.', onclick: () => elegirArchivo('voz') }, icon('mic'), 'Cargar voz')),
       vozOk, listaTomasS,
+      h('div', { class: 'row', style: { alignItems: 'center', gap: '8px' }, ayuda: 'Si grabaste con el móvil o un micro sencillo: quita el ruido de fondo, acerca tu voz al sonido de un micro de estudio y recupera agudos. La mezcla automática lo enciende sola si lo detecta.' }, movilSw.el, h('span', null, 'Voz de móvil → estudio')),
       h('div', { class: 'tip' }, 'Consejo: graba con auriculares y canta a un palmo del micro. Si te equivocas, graba otra toma: se guardan todas y eliges la mejor.'));
     const c2 = h('div', { class: 'panel stack' },
       h('div', { class: 'phead' }, h('div', { class: 'stepnum', id: 'st2' }, '2'), h('div', null, h('h2', null, 'Escucha y elige estilo'), h('div', { class: 'sub' }, 'Dale play: la mezcla suena en directo mientras tocas.'))),
@@ -239,8 +250,14 @@
   const CARDS = [];
   const presetSelA = Select({ label: 'Preset', options: [], onChange: (id) => elegirPreset(id) });
   const abBtns = {};
+  // El «aire» de la mezcla automática solo va sin Realce (el Realce ya da aire). Al encender o apagar el Realce a mano
+  // en el avanzado, se quita o se devuelve ese aire en la banda «Aire» (24/11).
+  function aireConRealce(enciende) {
+    const ai = S.auto && S.autoExtra ? +S.autoExtra.aire || 0 : 0; if (!ai || !!S.params.realce.on === !!enciende) return;
+    const B6 = S.params.eq.bandas[6]; B6.g = Math.round(D.clamp(B6.g + (enciende ? -ai : ai), -18, 18) * 10) / 10;
+  }
   function card(o) {
-    const sw = o.on ? Switch({ value: getP(S.params, o.on), label: '', ayuda: 'Encender o apagar este módulo', onChange: (v) => cambio('p', o.on, v) }) : null;
+    const sw = o.on ? Switch({ value: getP(S.params, o.on), label: '', ayuda: 'Encender o apagar este módulo', onChange: (v) => { const rz = o.on === 'realce.on'; if (rz) aireConRealce(v); cambio('p', o.on, v); if (rz) refresh(); } }) : null;
     if (sw) bind('p', o.on, sw);
     const el = h('div', { class: 'panel card' + (o.w2 ? ' w2' : ''), id: 'card-' + o.id },
       h('div', { class: 'chead' }, h('h3', null, h('span', { class: 'led' }), o.title), o.extra || null, sw ? sw.el : null),
@@ -356,6 +373,13 @@
         K('armonicos.ganancia', 'Cuánto sube', 0, 12, { fmt: fmt.db, step: 0.5, ayuda: 'dB que se suben la nota y sus octavas. 4–6 dB es lo habitual.' }),
         K('armonicos.ancho', 'Estrechez', 1, 30, { curve: 'log', fmt: (v) => 'Q ' + num(v, 1), ayuda: 'Más alto = solo la nota exacta; más bajo = también lo de alrededor.' }),
         K('armonicos.desde', 'A partir de', 60, 1500, { curve: 'log', fmt: (v) => { const n = 12 * Math.log2(v / 440) + 57, i = Math.round(n); return D.NOTAS[((i % 12) + 12) % 12] + Math.floor(i / 12) + ' · ' + fmt.hz(v); }, ayuda: 'Solo actúa en notas a partir de esta (en «Nota fija», sube las octavas desde aquí). Para gritos y agudos: a partir de Mi4–La4.' }))) });
+    const corCard = card({ id: 'cor', title: 'Voz de móvil', on: 'corrector.on', body: h('div', null,
+      h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '6px' } }, 'Para tomas grabadas con el móvil o un micro sencillo: quita el ruido de fondo aprendido en tus silencios, acerca el color de tu voz al de un micro de estudio (solo lo que se sale de lo normal: tu timbre se respeta) y recupera agudos que el móvil corta. La mezcla automática lo mide y lo enciende sola si hace falta. Lo que el móvil no captó no se recupera del todo.'),
+      h('div', { class: 'dim mono', id: 'corInfo', style: { fontSize: '11px', marginBottom: '8px' } }, ''),
+      grMeter('gr-cor'), h('div', { class: 'grid sect' },
+        K('corrector.cantidad', 'Hacia estudio', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto se acerca el color de tu voz a un micro de estudio. 70 % es lo normal; 100 % aplica toda la corrección medida.' }),
+        K('corrector.ruido', 'Quitar ruido', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto baja el ruido de fondo (hasta 20 dB) cuando cantas flojo o no cantas. Aprende el ruido de los silencios de tu toma.' }),
+        K('corrector.brillo', 'Agudos', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Recupera los agudos que el móvil corta (por encima de su «corte»), generándolos a partir de tu voz. No hace nada si tu toma ya tiene agudos.' }))) });
     const svCard = card({ id: 'sv', title: 'Suavizador', on: 'suavizador.on', body: h('div', null,
       h('div', { class: 'dim', style: { fontSize: '12px', marginBottom: '10px' } }, 'Quita lo estridente sin apagar la voz: en cada momento baja solo las frecuencias que sobresalen (lo que pincha, silba o raspa) y solo mientras sobresalen. Idea de los suavizadores tipo Soothe.'),
       grMeter('gr-sv'), h('div', { class: 'grid sect' },
@@ -443,7 +467,7 @@
       h('button', { class: 'btn sm primary', onclick: () => abrirGrabacion() }, icon('rec'), 'Grabar toma'), h('button', { class: 'btn sm', onclick: () => elegirArchivo('voz') }, icon('mic'), 'Cargar voz'))) });
 
     const chips = h('div', { class: 'modchips' });
-    const order = [tomasCard, gateCard, rzCard, eqCard, arCard, dsCard, c1, c2, satCard, svCard, dblCard, riderCard, dlyCard, revCard, mixCard, limCard];
+    const order = [tomasCard, corCard, gateCard, rzCard, eqCard, arCard, dsCard, c1, c2, satCard, svCard, dblCard, riderCard, dlyCard, revCard, mixCard, limCard];
     for (const c of order.map((el) => CARDS.find((x) => x.el === el))) {
       const ch = h('div', { class: 'chip', ayuda: 'Ir a ' + c.title }, h('span', { class: 'dot' }), c.title);
       ch.addEventListener('click', () => { c.el.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.el.animate([{ boxShadow: '0 0 0 2px rgba(208,32,46,0.8)' }, { boxShadow: '0 0 0 0 transparent' }], 900); });
@@ -644,7 +668,7 @@
     const L = (v) => (isFinite(v) && v > -70 ? num(v) : '—');
     if (meters.lufsM) { meters.lufsM.textContent = L(m.lufsM); meters.lufsS.textContent = L(m.lufsS); meters.tp.textContent = pk.tp > -80 ? num(pk.tp) : '—'; meters.tp.classList.toggle('tpwarn', pk.tp > -0.9); meters.lim.textContent = num(m.gr.lim); }
     const setGr = (id, v) => { const el = document.getElementById(id); if (!el) return; el.querySelector('.gfill').style.width = D.clamp(-v / 20, 0, 1) * 100 + '%'; el.querySelector('.v').textContent = num(v) + ' dB'; };
-    setGr('gr-comp1', m.gr.c1); setGr('gr-comp2', m.gr.c2); setGr('gr-ds', m.gr.deesser); setGr('gr-gate', m.gr.puerta); setGr('gr-rz', m.gr.realce); setGr('gr-sv', m.gr.suavizador);
+    setGr('gr-comp1', m.gr.c1); setGr('gr-comp2', m.gr.c2); setGr('gr-ds', m.gr.deesser); setGr('gr-gate', m.gr.puerta); setGr('gr-rz', m.gr.realce); setGr('gr-sv', m.gr.suavizador); setGr('gr-cor', m.gr.corrector);
     { const el = document.getElementById('arNota'); if (el) el.textContent = m.nota > 0 ? (() => { const n = 12 * Math.log2(m.nota / 440) + 57, i = Math.round(n); return D.NOTAS[((i % 12) + 12) % 12] + Math.floor(i / 12) + ' · ' + fmt.hz(m.nota); })() : '—'; } setGr('gr-lim', m.gr.lim);
     const rv = (m.rider >= 0 ? '+' : '') + num(m.rider) + ' dB'; if (meters.rider) meters.rider.textContent = rv; const r2 = document.getElementById('riderVal'); if (r2) r2.textContent = rv;
     eqDyn = m.eqDin;
@@ -1018,6 +1042,7 @@
     let p = paramsDePreset(pr); delete p._delante;
     p.bpm = bpm;
     p = aplicarAuto(p);
+    p.corrector = clone(S.params.corrector); // «Voz de móvil» es de tu micro: cambiar de estilo no toca lo que hayas ajustado
     p.voz.volumen = vozVol; p.base.volumen = baseVol; // cambiar de estilo no toca tus faders
     S.presetId = id; S.params = p; S.modificado = false;
     refresh(); push();
@@ -1069,7 +1094,7 @@
     inp.click();
   }
   // nivel de entrada, limpieza, volúmenes y bpm dependen de cada voz y cada canción: no viajan en un preset
-  function sinPersonales(p) { const d = D.defaultParams(); p.entrada = d.entrada; p.limpieza = d.limpieza; p.voz.volumen = 0; p.base.volumen = 0; p.voz.mute = p.voz.solo = p.base.mute = false; p.bpm = 120; delete p.bypass; return p; }
+  function sinPersonales(p) { const d = D.defaultParams(); p.entrada = d.entrada; p.limpieza = d.limpieza; p.corrector = d.corrector; p.voz.volumen = 0; p.base.volumen = 0; p.voz.mute = p.voz.solo = p.base.mute = false; p.bpm = 120; delete p.bypass; return p; }
   function recibirPreset(nombre, params) {
     const p = sinPersonales(D.prepararParams(sanear(params)));
     const mis = misPresets(); const id = 'mio-' + Date.now().toString(36);
@@ -1221,9 +1246,9 @@
       paso('m4', 'Graba.', 'Botón <b>●</b> o <b>Grabar</b>. Elige el micro, mira que la barra no toque el rojo y pulsa <b>Empezar a grabar</b>. Hay cuenta atrás de 1 compás. Para parar: <b>■</b> o barra espaciadora.', 'si la barra se queda en verde muy flojo, sube la ganancia de tu interfaz; si toca el rojo, bájala.'),
       paso('m5', 'Haz varias tomas y quédate con la mejor.', 'Cada grabación es una toma nueva. Elige la buena en la lista. Para grabar solo un trozo, pon el cursor en el visor y elige «Desde el cursor».'),
       h('h3', null, '3 · Mezcla'),
-      paso('m6', 'Elige estilo y escucha.', 'Al grabar se hace sola la <b>mezcla automática</b> (nivel, barro, resonancias, eses y volumen frente a la base). Cambia de estilo mientras suena.', 'lee «Lo que he ajustado»: te explica qué ha hecho con tu voz.'),
+      paso('m6', 'Elige estilo y escucha.', 'Al grabar se hace sola la <b>mezcla automática</b> (nivel, barro, resonancias, eses y volumen frente a la base). Cambia de estilo mientras suena. Los estilos de Áleran dejan tu voz <b>metida en la pista</b>, como en un disco, con los efectos floreciendo entre frases; casi todos llevan el <b>vocal rider</b>, que sube solo las frases que cantas más flojas.', 'lee «Lo que he ajustado»: te explica qué ha hecho con tu voz.'),
       paso('m7', 'Retoca a tu gusto.', '<b>Realce</b> (voz de radio: densa y siempre delante), voz delante, brillo, cuerpo, compresión, reverb, eco y <b>anchura</b>. Reverb y eco van en paralelo: tu voz seca no se toca, solo se suma más efecto. Doble clic en una perilla la deja como estaba.', 'si quieres mucho efecto pegado a la voz, en el modo avanzado baja el <b>ducking</b> del delay y de la reverb: el ducking aparta el efecto mientras cantas y lo deja sonar en los huecos.'),
-      paso('m8', 'Modo avanzado (opcional).', 'Todos los parámetros de estudio: Realce vocal, Armónicos, Suavizador, EQ de 8 bandas con dinámica, de-esser, dos compresores (FET, óptico, VCA y moderno), saturación, doblador, vocal rider, delay, reverb y limitador. Pasa el ratón por cada control y abajo verás qué hace.', 'la barra «Reducción» de cada compresor: 3–6 dB en las frases fuertes es lo normal en voz.'),
+      paso('m8', 'Modo avanzado (opcional).', 'Todos los parámetros de estudio: Voz de móvil (corrector de micro), Realce vocal, Armónicos, Suavizador, EQ de 8 bandas con dinámica, de-esser, dos compresores (FET, óptico, VCA y moderno), saturación, doblador, vocal rider, delay, reverb y limitador. Pasa el ratón por cada control y abajo verás qué hace.', 'la barra «Reducción» de cada compresor: 3–6 dB en las frases fuertes es lo normal en voz.'),
       h('h3', null, '4 · Exporta y comparte'),
       paso('m9', 'Exporta.', 'Botón <b>Exportar</b>: mezcla completa, solo tu voz con efectos o tu voz sin tocar; WAV o MP3; y el volumen final (Streaming −14 LUFS para Spotify/YouTube).', 'al terminar verás el volumen (LUFS) y el pico más alto. Con un «Volumen final» elegido, el pico nunca pasa de −1 dB.'),
       paso('m10', 'Guarda o comparte tu sonido.', '<b>Guardar preset</b> lo guarda en este navegador. <b>Copiar enlace</b> crea un enlace con tus ajustes (sin tu voz) para mandárselo a Áleran o a un compañero.'),
@@ -1257,6 +1282,10 @@
     ['g19', 'Suavizador', 'Con una voz estridente, sube «Suavizar» a 40–60 %. ¿Desaparece lo que pincha sin que la voz se apague?'],
     ['g20', 'Armónicos', 'Canta una nota aguda larga o un grito y sube «Armónicos». ¿La nota brilla más, como con tu EQ de octavas en Audition? En avanzado, mira «Nota ahora».'],
     ['g21', 'Efecto en pausas', 'Mueve «Efecto en pausas»: a la derecha, ¿el eco y la reverb florecen en los huecos y se apartan al cantar?'],
+    ['g22', 'Vocal rider', 'En el avanzado, enciende y apaga el «Vocal rider» con una toma donde cantes unas frases más flojas que otras. ¿Sube las flojas sin que se note? ¿Al empezar cada frase NO sube y luego baja? Al apagarlo, ¿el volumen vuelve sin salto?'],
+    ['g23', 'Estilos equilibrados', 'Prueba los 9 estilos con la misma toma. ¿La voz va metida en la pista (ni encima ni tapada)? ¿Cada estilo suena a lo que dice su nombre?'],
+    ['g24', 'Voz de móvil', 'Graba con el móvil (o carga una toma de móvil). ¿La mezcla automática enciende «Voz de móvil» y lo explica? Apágalo y enciéndelo: ¿suena más a micro de estudio, con menos ruido y más agudos, sin cambiar quién eres?'],
+    ['g25', 'Realce y brillo', 'En el avanzado, con la mezcla automática hecha, enciende y apaga el Realce. ¿La banda «Aire» de la EQ baja al encenderlo y vuelve al apagarlo (sin brillo de más)?'],
     ['g16', 'Tu oído', 'Compara una mezcla de VoxStudio Lite con la del VoxStudio de escritorio con la misma toma.'],
   ];
   function construirGuia() {
@@ -1383,7 +1412,7 @@
       S.params = D.prepararParams(sanear(st.params));
       S.presetId = st.presetId || S.presetId; const RANGO = { delante: [-6, 6], brillo: [-6, 6], cuerpo: [-6, 6], compresion: [-100, 100], reverb: [-20, 20], eco: [-20, 20], ancho: [0, 100], realce: [0, 100], suavizar: [0, 100], armonicos: [0, 100], pausas: [-100, 100] };
       for (const k of Object.keys(S.macros)) { const v = st.macros && st.macros[k]; if (typeof v === 'number' && isFinite(v)) S.macros[k] = D.clamp(v, RANGO[k][0], RANGO[k][1]); }
-      S.autoExtra = st.autoExtra && typeof st.autoExtra === 'object' ? { pres: D.clamp(+st.autoExtra.pres || 0, 0, 4), aire: D.clamp(+st.autoExtra.aire || 0, 0, 4) } : null;
+      S.autoExtra = st.autoExtra && typeof st.autoExtra === 'object' ? { pres: D.clamp(+st.autoExtra.pres || 0, 0, 4), aire: D.clamp(+st.autoExtra.aire || 0, 0, 4), corrector: limpiarInfoMovil(st.autoExtra.corrector) } : null;
       S.objetivo = st.objetivo === undefined ? -14 : st.objetivo; S.formato = st.formato || S.formato; S.que = st.que || S.que;
       S.auto = st.auto ? D.prepararParams(sanear(st.auto)) : null; S.bpmManual = !!st.bpmManual; S.modo = st.modo === 'avanzado' ? 'avanzado' : 'sencillo';
     } else if (PRESETS[0]) { S.params = paramsDePreset(PRESETS[0]); delete S.params._delante; }
