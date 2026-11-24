@@ -6,6 +6,11 @@
       "permanent": true
     },
     {
+      "source": "/voxstudio/",
+      "destination": "/epicstudio/",
+      "permanent": true
+    },
+    {
       "source": "/voxstudio/:path*",
       "destination": "/epicstudio/:path*",
       "permanent": true
