@@ -447,3 +447,18 @@ details.mas > summary:hover { color: var(--text); }
   .eqside .grid { gap: 6px 2px; }
   .eqside .sect { margin-top: 6px; padding-top: 6px; }
 }
+/* 5 tarjetas (etapa Voz, con el Afinador, 25/11): rejilla de 6 → 3 arriba y 2 abajo; o 5 en fila en pantallas muy anchas */
+.cards.n5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 2200px) {
+  .cards.n5 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .cards.n5 > * { grid-column: span 2; }
+  .cards.n5 > :nth-child(n+4) { grid-column: span 3; }
+}
+@media (max-width: 1150px) {
+  .cards.n5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards.n5 > *, .cards.n5 > :nth-child(n+4) { grid-column: auto; }
+  .cards.n5 > :nth-child(5) { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .cards.n5 { grid-template-columns: minmax(0, 1fr); }
+}

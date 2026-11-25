@@ -71,7 +71,57 @@
   function push() {
     guardarEstado();
     if (pushPend) return; pushPend = true;
-    requestAnimationFrame(() => { pushPend = false; motor.setParams(efectivos()); dibujarEq(); dibujarCurvas(); });
+    requestAnimationFrame(() => { pushPend = false; motor.setParams(efectivos()); dibujarEq(); dibujarCurvas(); reponerVoz(); programarAfinado(); });
+  }
+
+  // ───────────────────────── afinador (25/11) ─────────────────────────
+  // No es en directo: la toma principal se afina entera en un Worker y la afinada sustituye a la original al
+  // sonar y al exportar. Se recalcula solo al cambiar sus ajustes, la toma o la base (la referencia sale de la base).
+  const AF = { ref: null, refDe: null, trabajando: null, error: '' };
+  let afT = 0;
+  const afClave = (p, ref) => JSON.stringify([p.cantidad, p.velocidad, p.escala, p.tonica, ref ? Math.round(ref.cents * 10) : null, ref ? Math.round(ref.fuerza * 100) : null]);
+  function programarAfinado() { clearTimeout(afT); afT = setTimeout(() => { asegurarAfinado().catch(() => {}); }, 350); }
+  // si lo que debe sonar (afinada / original) no es lo que suena, se relanza en el mismo punto
+  function reponerVoz() {
+    if (!motor.toma || !motor.playing || recState || !motor.srcV) return;
+    if (motor.srcV.buffer !== motor.vozBuf(motor.toma)) motor.play(motor.position());
+  }
+  async function asegurarAfinado() {
+    const t = S.tomas[S.tomaSel], p = S.params.afinador;
+    if (!p.on || !t || !motor.toma) { pintarAfInfo(); return; }
+    if (motor.base !== AF.refDe) { const b = motor.base; AF.refDe = b; AF.ref = null; if (b) { try { const ref = await motor.refBase(b); if (AF.refDe === b) AF.ref = ref; } catch (e) { /* sin referencia: La = 440 */ } } }
+    const clave = afClave(p, AF.ref);
+    if (t._af && t._af.buf === t.buffer && t._af.clave === clave) {
+      if (motor.toma && motor.toma.buffer === t.buffer) motor.toma.afinado = t._af.out;
+      AF.error = ''; pintarAfInfo(); reponerVoz(); return;
+    }
+    if (AF.trabajando && AF.trabajando.clave === clave && AF.trabajando.t === t && AF.trabajando.buf === t.buffer) return AF.trabajando.prom;
+    pintarAfInfo('Afinando tu toma…');
+    const buf = t.buffer, prom = (async () => {
+      const an = t._an && t._an.buf === buf ? t._an.an : null;
+      const res = await motor.afinar(buf, an, Object.assign({ refBase: AF.ref }, p));
+      t._an = { buf, an: res.an }; t._af = { buf, clave, out: res.buffer, plan: res.plan };
+    })();
+    AF.trabajando = { clave, t, buf, prom };
+    try { await prom; } catch (e) { AF.error = e.message || String(e); pintarAfInfo(); throw e; } finally { if (AF.trabajando && AF.trabajando.prom === prom) AF.trabajando = null; }
+    return asegurarAfinado(); // los ajustes pueden haber cambiado mientras tanto
+  }
+  // antes de exportar o de la mezcla automática: la toma afinada tiene que estar lista
+  async function afinadoListo() { if (!S.params.afinador.on || !motor.toma) return; try { await asegurarAfinado(); } catch (e) { toast('No se pudo afinar la toma (' + e.message + '). Se usa tal cual.', 'warn'); } }
+  function pintarAfInfo(txt) {
+    const el = document.getElementById('afInfo'); if (!el) return;
+    if (txt) { el.textContent = txt; return; }
+    const p = S.params.afinador, t = S.tomas[S.tomaSel];
+    if (AF.error) { el.textContent = 'No se pudo afinar: ' + AF.error; return; }
+    if (!p.on) { el.textContent = ''; return; }
+    if (!t || !t._af || t._af.buf !== t.buffer) { el.textContent = t ? 'Afinando tu toma…' : 'Graba o carga tu voz.'; return; }
+    const pl = t._af.plan, la = 440 * Math.pow(2, pl.ref / 1200);
+    let s2 = pl.deBase ? 'Afinada a la base (La = ' + num(la, 1) + ' Hz).' : 'Afinada a La = 440 Hz' + (motor.base ? ' (la base no deja medir su afinación).' : ' (sin base).');
+    if (pl.voz && pl.voz.notas >= 6 && pl.voz.fuerza >= 0.35) {
+      let d = pl.ref - pl.voz.cents; d -= 100 * Math.round(d / 100);
+      if (Math.abs(d) >= 12) s2 += ' Tu toma entera estaba ' + Math.round(Math.abs(d)) + ' cents más ' + (d > 0 ? 'baja' : 'alta') + ' que la base: se mueve junta' + (p.cantidad < 50 ? ' (del todo a partir del 50 %)' : '') + '.';
+    }
+    el.textContent = s2;
   }
   let saveT = 0;
   const escribirEstado = () => lsSet(LS, { modo: S.modo, params: S.params, presetId: S.presetId, macros: S.macros, objetivo: S.objetivo, formato: S.formato, que: S.que, auto: S.auto, autoExtra: S.autoExtra, bpmManual: S.bpmManual });
@@ -112,7 +162,7 @@
   function cambio(src, path, v, after) {
     if (src === 'm') S.macros[path] = v; else setP(S.params, path, v);
     S.modificado = true; push(); if (after) after(v);
-    if (/tipo|estilo|ratioFet|optoModo|sync|modo|\.on$/.test(path)) visibilidad();
+    if (/tipo|estilo|ratioFet|optoModo|sync|modo|escala|\.on$/.test(path)) visibilidad();
   }
   function K(path, label, min, max, o = {}) {
     const src = o.src || 'p';
@@ -128,7 +178,7 @@
   function when(el, fn) { VIS.push({ el, fn }); return el; }
   function refresh() {
     for (const r of REG) { const v = val(r.src, r.path); if (v !== undefined) r.w.set(v); }
-    visibilidad(); dibujarEq(); dibujarCurvas(); actualizarPresetUI(); actualizarCabecera(); infoMovil();
+    visibilidad(); dibujarEq(); dibujarCurvas(); actualizarPresetUI(); actualizarCabecera(); infoMovil(); pintarAfInfo();
   }
   // qué ha medido la mezcla automática de tu micro (tarjeta «Voz de móvil»)
   function limpiarInfoMovil(i) { if (!i || typeof i !== 'object') return undefined; return { movil: !!i.movil, corte: D.clamp(+i.corte || 0, 0, 24000), ruidoRel: D.clamp(+i.ruidoRel || -99, -99, 0), texto: String(i.texto || '').slice(0, 300) }; }
@@ -214,6 +264,15 @@
       { v: '-9', label: 'Muy fuerte (metal, EDM) · −9 LUFS' }, { v: '-23', label: 'Televisión / radio · −23 LUFS' }, { v: 'none', label: 'Sin normalizar (tal cual suena)' }];
   }
 
+  // perilla del modo sencillo: 0 = Afinador apagado; más = encendido con esa cantidad
+  function afinacionKnob() {
+    const a0 = S.params.afinador;
+    const w = Knob({ label: 'Afinación', min: 0, max: 100, def: 0, value: a0.on ? a0.cantidad : 0, fmt: fmt.pct, step: 1,
+      ayuda: 'Afina tu voz con suavidad hacia las notas de la base, respetando tu vibrato y tus deslizamientos. 30–60 % suena natural; 100 % es afinación marcada. Se calcula al soltar la perilla (no es en directo).',
+      onChange: (v) => { const a = S.params.afinador; a.on = v > 0; if (v > 0) a.cantidad = v; S.modificado = true; push(); visibilidad(); } });
+    REG.push({ src: 'p', path: 'afinador', w: { set: (a) => w.set(a.on ? a.cantidad : 0) } });
+    return w.el;
+  }
   function colSimple() {
     const movilSw = Switch({ value: S.params.corrector.on, ayuda: 'Encender «Voz de móvil»', onChange: (v) => cambio('p', 'corrector.on', v) }); bind('p', 'corrector.on', movilSw);
     const c1 = h('div', { class: 'panel stack' },
@@ -244,7 +303,8 @@
         K('ancho', 'Anchura', 0, 100, { src: 'm', fmt: fmt.pct, step: 1, ayuda: 'Abre la voz en estéreo con copias muy cercanas (doblador). En el centro sigue estando tu voz.' }),
         K('pausas', 'Efecto en pausas', -100, 100, { src: 'm', fmt: (v) => (v > 0 ? '+' : '') + Math.round(v) + ' %', step: 1, ayuda: 'A la derecha: el eco y la reverb se apartan mientras cantas y florecen en los huecos entre frases. A la izquierda: el efecto se queda pegado a la voz también al cantar.' }),
         K('suavizar', 'Suavizar', 0, 100, { src: 'm', fmt: fmt.pct, step: 1, ayuda: 'Quita lo estridente: baja en cada momento solo las frecuencias que pinchan o raspan (como Soothe), sin apagar la voz.' }),
-        K('armonicos', 'Armónicos', 0, 100, { src: 'm', fmt: fmt.pct, step: 1, ayuda: 'Hace brillar la nota que cantas y todas sus octavas (como subir 220, 440, 880… a mano en Audition). Solo en las notas agudas; ideal para gritos y notas largas.' })));
+        K('armonicos', 'Armónicos', 0, 100, { src: 'm', fmt: fmt.pct, step: 1, ayuda: 'Hace brillar la nota que cantas y todas sus octavas (como subir 220, 440, 880… a mano en Audition). Solo en las notas agudas; ideal para gritos y notas largas.' }),
+        afinacionKnob()));
     const c3 = h('div', { class: 'panel stack' },
       h('div', { class: 'phead' }, h('div', { class: 'stepnum', id: 'st3' }, '3'), h('div', null, h('h2', null, 'Exporta'), h('div', { class: 'sub' }, 'Tu canción terminada, lista para escuchar o subir.'))),
       h('div', { class: 'field' }, h('label', null, 'Volumen final'), objSelS.el),
@@ -405,6 +465,14 @@
         K('armonicos.ganancia', 'Cuánto sube', 0, 12, { fmt: fmt.db, step: 0.5, ayuda: 'dB que se suben la nota y sus octavas. 4–6 dB es lo habitual.' }),
         K('armonicos.ancho', 'Estrechez', 1, 30, { mas: true, curve: 'log', fmt: (v) => 'Q ' + num(v, 1), ayuda: 'Más alto = solo la nota exacta; más bajo = también lo de alrededor.' }),
         K('armonicos.desde', 'A partir de', 60, 1500, { curve: 'log', fmt: (v) => { const n = 12 * Math.log2(v / 440) + 57, i = Math.round(n); return D.NOTAS[((i % 12) + 12) % 12] + Math.floor(i / 12) + ' · ' + fmt.hz(v); }, ayuda: 'Solo actúa en notas a partir de esta (en «Nota fija», sube las octavas desde aquí). Para gritos y agudos: a partir de Mi4–La4.' }))) });
+    const afCard = card({ id: 'af', title: 'Afinador', on: 'afinador.on', body: h('div', null,
+      h('div', { class: 'desc' }, 'Afina tu voz con suavidad, como un efecto más. No es en directo: analiza la toma entera y lleva el centro de cada nota a su sitio, respetando el vibrato, los deslizamientos y los ataques; el timbre no cambia. Afina respecto a la base (mide en qué afinación está) y, si toda tu toma está desplazada, primero la mueve entera para no cambiar tu melodía.'),
+      h('div', { class: 'dim mono', id: 'afInfo', style: { fontSize: '11px', marginBottom: '8px' } }, ''),
+      h('div', { class: 'grid sect' },
+        K('afinador.cantidad', 'Cantidad', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Cuánto se acerca cada nota a su sitio. 30–60 % suena natural; 100 % la deja clavada.' }),
+        K('afinador.velocidad', 'Velocidad', 0, 100, { fmt: fmt.pct, step: 1, ayuda: 'Lo rápido que llega a la nota. Bajo = más suave y natural; alto = más firme. El vibrato se respeta siempre.' }),
+        SLP('afinador.escala', 'Notas', [{ v: 'cromatica', label: 'Todas (lo más seguro)' }, { v: 'mayor', label: 'Escala mayor' }, { v: 'menor', label: 'Escala menor' }], { ayuda: '«Todas» lleva cada nota al semitono más cercano. Si sabes la tonalidad de la canción, elige su escala: así nunca afina hacia una nota que no está en ella.' }),
+        when(SLP('afinador.tonica', 'Tonalidad', D.NOTAS.map((n) => ({ v: n, label: n }))), (p) => p.afinador.escala !== 'cromatica'))) });
     const corCard = card({ id: 'cor', title: 'Voz de móvil', on: 'corrector.on', body: h('div', null,
       h('div', { class: 'desc' }, 'Para tomas grabadas con el móvil o un micro sencillo: quita el ruido de fondo aprendido en tus silencios, acerca el color de tu voz al de un micro de estudio (solo lo que se sale de lo normal: tu timbre se respeta) y recupera agudos que el móvil corta. La mezcla automática lo mide y lo enciende sola si hace falta. Lo que el móvil no captó no se recupera del todo.'),
       h('div', { class: 'dim mono', id: 'corInfo', style: { fontSize: '11px', marginBottom: '8px' } }, ''),
@@ -520,7 +588,7 @@
 
     // ── por etapas, siguiendo el camino de la voz (24/11): cada etapa en su cuadrícula de tarjetas iguales ──
     const ETAPAS = [
-      { id: 'voz', t: 'Voz', sub: 'Tomas y limpieza', cards: [tomasCard, corCard, gateCard, dsCard] },
+      { id: 'voz', t: 'Voz', sub: 'Tomas, afinación y limpieza', cards: [tomasCard, afCard, corCard, gateCard, dsCard] },
       { id: 'color', t: 'Color', sub: 'EQ y tono', cards: [eqCard, rzCard, arCard, svCard] },
       { id: 'din', t: 'Dinámica', sub: 'Compresión', cards: [c1, c2, satCard, riderCard] },
       { id: 'esp', t: 'Espacio', sub: 'Ancho, eco y reverb', cards: [dblCard, dlyCard, revCard] },
@@ -870,7 +938,7 @@
     S.tocado = true;
     if (motor.base && motor.playing) motor.stop();
     S.bpmManual = !!bpm; if (bpm) { S.params.bpm = bpm; bpmIn.value = bpm; push(); }
-    motor.base = buf; motor.baseNombre = nombre; S.baseNombre = nombre;
+    motor.base = buf; motor.baseNombre = nombre; S.baseNombre = nombre; programarAfinado();
     motor.loop = null; S.loopGuard = null; btnLoop.classList.remove('on');
     toast('Base cargada: <b>' + escapar(nombre) + '</b> (' + tiempo(buf.duration).replace(/,\d$/, '') + ')', 'ok');
     if (!S.bpmManual) { setTimeout(() => { const b = Analisis.tempo(buf); if (b) { S.params.bpm = b; bpmIn.value = b; push(); } }, 30); }
@@ -924,10 +992,10 @@
     if (recState) return;
     S.tomaSel = i; const t = S.tomas[i];
     const pos = motor.position(), was = motor.playing;
-    motor.toma = t ? { buffer: t.buffer, inicio: t.inicio } : null;
+    motor.toma = t ? { buffer: t.buffer, inicio: t.inicio, afinado: t._af && t._af.buf === t.buffer ? t._af.out : null } : null; // la afinada ya calculada suena al momento
     sincCoros(true);
     if (was) motor.play(pos);
-    pintarTomas(); actualizarCabecera(); calcPicos(); guardarSesion();
+    pintarTomas(); actualizarCabecera(); calcPicos(); guardarSesion(); programarAfinado();
   }
   // coros (24/11): tomas marcadas como «coro» que suenan a la vez que la principal, cada una con su volumen y panorama
   function sincCoros(sinReiniciar) {
@@ -1115,6 +1183,7 @@
     if (autoBusy) return; if (!motor.toma) { if (!silenciosa) toast('Primero graba o carga tu voz.', 'warn'); return; }
     autoBusy = true; const espera = toast2('Analizando tu voz…');
     try {
+      await afinadoListo();
       const base = presetPorId(S.presetId);
       const antes = JSON.stringify(S.params);
       const pBase = clone(S.params); pBase.bypass = false; pBase._delante = delanteDe(base); pBase._bpmManual = S.bpmManual;
@@ -1153,6 +1222,7 @@
     p.bpm = bpm;
     p = aplicarAuto(p);
     p.corrector = clone(S.params.corrector); // «Voz de móvil» es de tu micro: cambiar de estilo no toca lo que hayas ajustado
+    p.afinador = clone(S.params.afinador); // el Afinador es de tu voz, no del estilo
     p.pista = clone(S.params.pista); p.coros = clone(S.params.coros); // la pista y los coros son de tu canción
     p.voz.volumen = vozVol; p.base.volumen = baseVol; // cambiar de estilo no toca tus faders
     S.presetId = id; S.params = p; S.modificado = false;
@@ -1205,7 +1275,7 @@
     inp.click();
   }
   // nivel de entrada, limpieza, volúmenes y bpm dependen de cada voz y cada canción: no viajan en un preset
-  function sinPersonales(p) { const d = D.defaultParams(); p.entrada = d.entrada; p.limpieza = d.limpieza; p.corrector = d.corrector; p.pista = d.pista; p.coros = d.coros; p.voz.volumen = 0; p.base.volumen = 0; p.voz.mute = p.voz.solo = p.base.mute = false; p.bpm = 120; delete p.bypass; return p; }
+  function sinPersonales(p) { const d = D.defaultParams(); p.entrada = d.entrada; p.limpieza = d.limpieza; p.corrector = d.corrector; p.afinador = d.afinador; p.pista = d.pista; p.coros = d.coros; p.voz.volumen = 0; p.base.volumen = 0; p.voz.mute = p.voz.solo = p.base.mute = false; p.bpm = 120; delete p.bypass; return p; }
   function recibirPreset(nombre, params) {
     const p = sinPersonales(D.prepararParams(sanear(params)));
     const mis = misPresets(); const id = 'mio-' + Date.now().toString(36);
@@ -1279,6 +1349,7 @@
   async function exportar(o) {
     const sr = motor.sr; let chans, info = '', p = efectivos(); delete p._delante; p.bypass = false;
     if (o.que !== 'voz' && o.que !== 'seca') { p.voz.solo = false; p.voz.mute = false; p.base.mute = false; }
+    if (o.que !== 'seca') await afinadoListo();
     if (o.que === 'seca') { if (!motor.toma) throw new Error('No hay voz grabada.'); chans = motor.vozSeca(); }
     else if (o.que === 'voz') { if (!motor.toma) throw new Error('No hay voz grabada.'); o.onProgress(0.05, 'Procesando tu voz…'); chans = await motor.render({ params: p, modo: 'voz', onProgress: (f) => o.onProgress(f * 0.85) }); }
     else {
@@ -1359,7 +1430,7 @@
       h('h3', null, '3 · Mezcla'),
       paso('m6', 'Elige estilo y escucha.', 'Al grabar se hace sola la <b>mezcla automática</b> (nivel, barro, resonancias, eses y volumen frente a la base). Cambia de estilo mientras suena. Los estilos de Áleran dejan tu voz <b>metida en la pista</b>, como en un disco, con los efectos floreciendo entre frases; casi todos llevan el <b>vocal rider</b>, que sube solo las frases que cantas más flojas.', 'lee «Lo que he ajustado»: te explica qué ha hecho con tu voz.'),
       paso('m7', 'Retoca a tu gusto.', '<b>Realce</b> (voz de radio: densa y siempre delante), voz delante, brillo, cuerpo, compresión, reverb, eco y <b>anchura</b>. Reverb y eco van en paralelo: tu voz seca no se toca, solo se suma más efecto. Doble clic en una perilla la deja como estaba.', 'si quieres mucho efecto pegado a la voz, en el modo avanzado baja el <b>ducking</b> del delay y de la reverb: el ducking aparta el efecto mientras cantas y lo deja sonar en los huecos.'),
-      paso('m8', 'Modo avanzado (opcional).', 'Ordenado por etapas, siguiendo el camino de tu voz: <b>1 Voz</b> (tomas y limpieza), <b>2 Color</b> (EQ y tono), <b>3 Dinámica</b> (compresión), <b>4 Espacio</b> (ancho, eco y reverb) y <b>5 Mezcla</b> (voz y base, <b>coros</b>, <b>pista</b> y máster). En cada tarjeta, lo importante va en perillas y lo fino en «Más ajustes». «Ver todo» enseña todas las etapas a la vez. Todos los parámetros de estudio: Voz de móvil (corrector de micro), Realce vocal, Armónicos, Suavizador, EQ de 8 bandas con dinámica, de-esser, dos compresores (FET, óptico, VCA y moderno), saturación, doblador, vocal rider, delay, reverb y limitador. Pasa el ratón por cada control y abajo verás qué hace.', 'la barra «Reducción» de cada compresor: 3–6 dB en las frases fuertes es lo normal en voz.'),
+      paso('m8', 'Modo avanzado (opcional).', 'Ordenado por etapas, siguiendo el camino de tu voz: <b>1 Voz</b> (tomas y limpieza), <b>2 Color</b> (EQ y tono), <b>3 Dinámica</b> (compresión), <b>4 Espacio</b> (ancho, eco y reverb) y <b>5 Mezcla</b> (voz y base, <b>coros</b>, <b>pista</b> y máster). En cada tarjeta, lo importante va en perillas y lo fino en «Más ajustes». «Ver todo» enseña todas las etapas a la vez. Todos los parámetros de estudio: Afinador, Voz de móvil (corrector de micro), Realce vocal, Armónicos, Suavizador, EQ de 8 bandas con dinámica, de-esser, dos compresores (FET, óptico, VCA y moderno), saturación, doblador, vocal rider, delay, reverb y limitador. Pasa el ratón por cada control y abajo verás qué hace.', 'la barra «Reducción» de cada compresor: 3–6 dB en las frases fuertes es lo normal en voz.'),
       h('h3', null, '4 · Exporta y comparte'),
       paso('m9', 'Exporta.', 'Botón <b>Exportar</b>: mezcla completa, solo tu voz con efectos o tu voz sin tocar; WAV o MP3; y el volumen final (Streaming −14 LUFS para Spotify/YouTube).', 'al terminar verás el volumen (LUFS) y el pico más alto. Con un «Volumen final» elegido, el pico nunca pasa de −1 dB.'),
       paso('m10', 'Guarda o comparte tu sonido.', '<b>Guardar preset</b> lo guarda en este navegador. <b>Copiar enlace</b> crea un enlace con tus ajustes (sin tu voz) para mandárselo a Áleran o a un compañero.'),
@@ -1399,6 +1470,7 @@
     ['g25', 'Realce y brillo', 'En el avanzado, con la mezcla automática hecha, enciende y apaga el Realce. ¿La banda «Aire» de la EQ baja al encenderlo y vuelve al apagarlo (sin brillo de más)?'],
     ['g26', 'Modo avanzado ordenado', 'Pasa por las 5 etapas en tu pantalla y en el móvil. ¿Las tarjetas encajan sin huecos? ¿Encuentras lo que buscas? Abre «Más ajustes» en alguna y prueba «Ver todo».'],
     ['g27', 'Compresor en directo', 'Dale play y mira la gráfica de los compresores: ¿la bola recorre la curva y se ve cuánto comprime?'],
+    ['g31', 'Afinador', 'Con una toma cargada, sube «Afinación» (modo sencillo) al 50 % y suelta: en un momento suena afinada. ¿Suena natural, sin voz robótica? ¿El vibrato sigue igual? Prueba 100 % y compara con Bypass. Exporta y comprueba que la exportación suena afinada.'],
     ['g28', 'Coros', 'Graba dos o más tomas. Deja una como principal y pulsa «Coro» en otra. ¿Suenan juntas? Mueve su Volumen y Panorama mientras suena. En «5 · Mezcla → Coros», ¿Más reverb los mete al fondo? ¿Se exportan?'],
     ['g29', 'Pista (base)', 'En «5 · Mezcla → Pista», enciéndela y baja los Medios o los Graves. ¿La base cambia y tu voz se entiende mejor? ¿Se exporta así?'],
     ['g30', 'Tamaño y pantallas', 'Prueba «Tamaño» (abajo a la derecha) y abre la app en otra pantalla y en el móvil. ¿Todo cabe sin barras raras?'],

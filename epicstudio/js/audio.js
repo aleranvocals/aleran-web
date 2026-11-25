@@ -22,6 +22,25 @@ function micSource(ctx, stream) {
     return workletURL;
   }
 
+  // Afinador (25/11): el análisis y el desplazamiento de la toma van en un Worker (la página no se congela).
+  let afWorker = null, afId = 0; const afPend = new Map();
+  function afinadorWorker() {
+    if (!afWorker) {
+      const src = 'const D = (' + window.voxdspModule.toString() + ')();\n' +
+        'onmessage = (e) => { const m = e.data; try {\n' +
+        '  if (m.tipo === "ref") { postMessage({ id: m.id, ref: D.referenciaAfinacion(m.chans, m.fs, 90) }); return; }\n' +
+        '  const an = m.an || D.analizarAfinacion(m.x, m.fs);\n' +
+        '  const y = D.afinarVoz(m.x, m.fs, an, m.o);\n' +
+        '  postMessage({ id: m.id, an, y, plan: D.planAfinacion(an, m.o) }, [y.buffer]);\n' +
+        '} catch (err) { postMessage({ id: m.id, error: String(err && err.message || err) }); } };';
+      afWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
+      afWorker.onmessage = (e) => { const p = afPend.get(e.data.id); if (!p) return; afPend.delete(e.data.id); if (e.data.error) p.rej(new Error(e.data.error)); else p.res(e.data); };
+      afWorker.onerror = (e) => { for (const p of afPend.values()) p.rej(new Error(e.message || 'Error del afinador')); afPend.clear(); afWorker = null; };
+    }
+    return afWorker;
+  }
+  function afPedir(m, transfer) { return new Promise((res, rej) => { const id = ++afId; afPend.set(id, { res, rej }); afinadorWorker().postMessage(Object.assign({ id }, m), transfer || []); }); }
+
   const LS_LAT = 'voxlite.latencia';
   const leerLat = () => { try { return JSON.parse(localStorage.getItem(LS_LAT) || '{}'); } catch (e) { return {}; } };
   const guardarLat = (o) => { try { localStorage.setItem(LS_LAT, JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ } };
@@ -87,6 +106,15 @@ function micSource(ctx, stream) {
       for (let c = 0; c < buf.numberOfChannels; c++) { const x = buf.getChannelData(c); for (let i = 0; i < n; i++) o[i] += x[i] / buf.numberOfChannels; }
       return out;
     }
+    // la toma principal tal como entra en la cadena: afinada si el Afinador está encendido y ya calculada (no con Bypass)
+    vozBuf(t, p) { p = p || this.params; return t.afinado && p && p.afinador && p.afinador.on && !p.bypass ? t.afinado : t.buffer; }
+    // Afinador: referencia de la base y toma afinada (copias: los buffers de audio no se tocan)
+    async refBase(buf) { const chans = []; for (let c = 0; c < buf.numberOfChannels; c++) chans.push(buf.getChannelData(c).slice(0, Math.min(buf.length, Math.round(90 * buf.sampleRate)))); return (await afPedir({ tipo: 'ref', chans, fs: buf.sampleRate }, chans.map((c) => c.buffer))).ref; }
+    async afinar(buf, an, o) {
+      const x = buf.getChannelData(0).slice(); const r = await afPedir({ x, fs: buf.sampleRate, an, o }, [x.buffer]);
+      await this.init(); const out = this.ctx.createBuffer(1, r.y.length, buf.sampleRate); out.copyToChannel(r.y, 0);
+      return { buffer: out, an: r.an, plan: r.plan };
+    }
     duracion() {
       let d = this.base ? this.base.duration : 0;
       if (this.toma) d = Math.max(d, this.toma.inicio + this.toma.buffer.duration);
@@ -104,7 +132,7 @@ function micSource(ctx, stream) {
         this.srcB = s;
       }
       if (this.toma) {
-        const t = this.toma, s = ctx.createBufferSource(); s.buffer = t.buffer; s.connect(this.node, 0, 0);
+        const t = this.toma, s = ctx.createBufferSource(); s.buffer = this.vozBuf(t); s.connect(this.node, 0, 0);
         if (pos < t.inicio) s.start(when + (t.inicio - pos), 0);
         else if (pos - t.inicio < t.buffer.duration) s.start(when, pos - t.inicio);
         this.srcV = s;
@@ -237,7 +265,7 @@ function micSource(ctx, stream) {
       // la base suena por la cadena (el alumno oye la mezcla), sin su voz anterior
       if (this.base) { const s = ctx.createBufferSource(); s.buffer = this.base; s.connect(this.node, 0, 1); if (desde < this.base.duration) s.start(T0, desde); this.srcB = s; }
       // grabando un coro: también suenan tu voz principal y los coros (por el bus de coros, que pasa por la misma cadena: la latencia no cambia)
-      if (opts.oirVoces) this.srcC = [...(this.toma ? [{ buffer: this.toma.buffer, inicio: this.toma.inicio, vol: 0, pan: 0 }] : []), ...this.coros].map((c) => this._coroSrc(ctx, this.node, c, desde, T0));
+      if (opts.oirVoces) this.srcC = [...(this.toma ? [{ buffer: this.vozBuf(this.toma), inicio: this.toma.inicio, vol: 0, pan: 0 }] : []), ...this.coros].map((c) => this._coroSrc(ctx, this.node, c, desde, T0));
       this.playing = true; this.t0 = T0; this.p0 = desde; this._tick();
       this.rec = { stream, mic, recNode, mute, monitor, chunks, T0, desde, get first() { return first; }, get total() { return total; }, opts };
       return this.rec;
@@ -333,7 +361,7 @@ function micSource(ctx, stream) {
       node.connect(off.destination, 0);
       if (this.base && t0 < this.base.duration) { const s = off.createBufferSource(); s.buffer = this.base; s.connect(node, 0, 1); s.start(0, t0); }
       if (this.toma) {
-        const t = this.toma, s = off.createBufferSource(); s.buffer = t.buffer; s.connect(node, 0, 0);
+        const t = this.toma, s = off.createBufferSource(); s.buffer = this.vozBuf(t, p); s.connect(node, 0, 0);
         if (t.inicio >= t0) s.start(t.inicio - t0); else if (t0 - t.inicio < t.buffer.duration) s.start(0, t0 - t.inicio);
       }
       if (!o.sinCoros) for (const c of this.coros) this._coroSrc(off, node, c, t0, 0); // la mezcla automática mide solo la principal
