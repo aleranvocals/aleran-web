@@ -35,11 +35,21 @@ function micSource(ctx, stream) {
         '} catch (err) { postMessage({ id: m.id, error: String(err && err.message || err) }); } };';
       afWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
       afWorker.onmessage = (e) => { const p = afPend.get(e.data.id); if (!p) return; afPend.delete(e.data.id); if (e.data.error) p.rej(new Error(e.data.error)); else p.res(e.data); };
-      afWorker.onerror = (e) => { for (const p of afPend.values()) p.rej(new Error(e.message || 'Error del afinador')); afPend.clear(); afWorker = null; };
+      afWorker.onerror = (e) => { afFallo(new Error(e.message || 'Error del afinador')); };
     }
     return afWorker;
   }
-  function afPedir(m, transfer) { return new Promise((res, rej) => { const id = ++afId; afPend.set(id, { res, rej }); afinadorWorker().postMessage(Object.assign({ id }, m), transfer || []); }); }
+  // el Worker murió o no contesta: se rechaza todo lo pendiente y se crea otro la próxima vez
+  function afFallo(err) { const w = afWorker; afWorker = null; try { if (w) w.terminate(); } catch (e) { /* ya cerrado */ } for (const p of afPend.values()) { clearTimeout(p.to); p.rej(err); } afPend.clear(); }
+  // límite: 30 s + 2 × la duración de la toma (afinar 5 min tarda unos pocos segundos)
+  function afPedir(m, transfer, segs) {
+    return new Promise((res, rej) => {
+      let w; try { w = afinadorWorker(); } catch (e) { rej(new Error('Este navegador no deja afinar (' + (e.message || e) + ')')); return; }
+      const id = ++afId, to = setTimeout(() => afFallo(new Error('El afinador tardó demasiado')), (30 + 2 * (segs || 0)) * 1000);
+      afPend.set(id, { res: (d) => { clearTimeout(to); res(d); }, rej: (e) => { clearTimeout(to); rej(e); }, to });
+      w.postMessage(Object.assign({ id }, m), transfer || []);
+    });
+  }
 
   const LS_LAT = 'voxlite.latencia';
   const leerLat = () => { try { return JSON.parse(localStorage.getItem(LS_LAT) || '{}'); } catch (e) { return {}; } };
@@ -111,7 +121,7 @@ function micSource(ctx, stream) {
     // Afinador: referencia de la base y toma afinada (copias: los buffers de audio no se tocan)
     async refBase(buf) { const chans = []; for (let c = 0; c < buf.numberOfChannels; c++) chans.push(buf.getChannelData(c).slice(0, Math.min(buf.length, Math.round(90 * buf.sampleRate)))); return (await afPedir({ tipo: 'ref', chans, fs: buf.sampleRate }, chans.map((c) => c.buffer))).ref; }
     async afinar(buf, an, o) {
-      const x = buf.getChannelData(0).slice(); const r = await afPedir({ x, fs: buf.sampleRate, an, o }, [x.buffer]);
+      const x = buf.getChannelData(0).slice(); const r = await afPedir({ x, fs: buf.sampleRate, an, o }, [x.buffer], buf.duration);
       await this.init(); const out = this.ctx.createBuffer(1, r.y.length, buf.sampleRate); out.copyToChannel(r.y, 0);
       return { buffer: out, an: r.an, plan: r.plan };
     }
@@ -140,8 +150,8 @@ function micSource(ctx, stream) {
       this.srcC = this.coros.map((c) => this._coroSrc(ctx, this.node, c, pos, when));
     }
     // una toma de coro: fuente → volumen → panorama → entrada 3 del motor (el bus de coros)
-    _coroSrc(ctx, node, c, pos, when) {
-      const s = ctx.createBufferSource(); s.buffer = c.buffer;
+    _coroSrc(ctx, node, c, pos, when, p) {
+      const s = ctx.createBufferSource(); s.buffer = this.vozBuf(c, p); // afinado si el Afinador está encendido
       const g = ctx.createGain(); g.gain.value = D.dbToLin(c.vol || 0);
       const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : null; if (pn) pn.pan.value = D.clamp((c.pan || 0) / 100, -1, 1);
       s.connect(g); if (pn) { g.connect(pn); pn.connect(node, 0, 2); } else g.connect(node, 0, 2);
@@ -364,7 +374,7 @@ function micSource(ctx, stream) {
         const t = this.toma, s = off.createBufferSource(); s.buffer = this.vozBuf(t, p); s.connect(node, 0, 0);
         if (t.inicio >= t0) s.start(t.inicio - t0); else if (t0 - t.inicio < t.buffer.duration) s.start(0, t0 - t.inicio);
       }
-      if (!o.sinCoros) for (const c of this.coros) this._coroSrc(off, node, c, t0, 0); // la mezcla automática mide solo la principal
+      if (!o.sinCoros) for (const c of this.coros) this._coroSrc(off, node, c, t0, 0, p); // la mezcla automática mide solo la principal
       // progreso: el render se detiene cada pocos segundos para avisar
       if (o.onProgress && off.suspend) {
         const step = Math.max(2, dur / 25);

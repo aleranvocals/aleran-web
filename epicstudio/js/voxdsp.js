@@ -1582,7 +1582,7 @@ function voxdspModule() {
   const ESCALAS = { cromatica: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], mayor: [0, 2, 4, 5, 7, 9, 11], menor: [0, 2, 3, 5, 7, 8, 10] };
   function analizarAfinacion(x, fs) {
     const D = Math.max(1, Math.round(fs / 12000)), fd = fs / D;
-    const hp = new Biquad(design('highpass', 60, Math.SQRT1_2, 0, fs));
+    const hp = new Biquad(design('highpass', 45, Math.SQRT1_2, 0, fs));
     const lp = [new Biquad(design('lowpass', Math.min(2500, fd * 0.4), Math.SQRT1_2, 0, fs)), new Biquad(design('lowpass', Math.min(2500, fd * 0.4), Math.SQRT1_2, 0, fs))];
     const nd = Math.floor(x.length / D), y = new Float32Array(nd);
     for (let i = 0, j = 0; i < x.length; i++) {
@@ -1590,7 +1590,7 @@ function voxdspModule() {
       if (i % D === 0 && j < nd) y[j++] = v;
     }
     const Hd = Math.max(1, Math.round(0.006 * fd)), H = Hd * D, W = Math.round(0.025 * fd);
-    const maxT = Math.floor(fd / 65), minT = Math.max(2, Math.floor(fd / 1100));
+    const maxT = Math.ceil(fd / 55) + 2, minT = Math.max(2, Math.floor(fd / 1600)); // de La1 (55 Hz) a ~Sol6
     const nF = Math.ceil(x.length / H), f0 = new Float32Array(nF), rms = new Float32Array(nF);
     for (let k = 0; k < nF; k++) {
       const s0 = Math.round(k * Hd - W / 2); let e = 0;
@@ -1601,20 +1601,23 @@ function voxdspModule() {
     const umbral = Math.max(ref * 0.01, 1e-4); // 40 dB por debajo de lo más fuerte de la toma
     // candidatos de cada trozo: los mínimos de YIN (hasta 5); el elegido sale de la continuidad (Viterbi),
     // así la nota no salta de octava dentro de una frase (en «Puertas» saltaba 130 veces con «el primer mínimo»)
-    const d = new Float64Array(maxT + 2), cand = new Array(nF);
+    const d = new Float64Array(maxT + 2), dr = new Float64Array(maxT + 2), cand = new Array(nF);
     for (let k = 0; k < nF; k++) {
       if (rms[k] < umbral) continue;
       const s0 = Math.round(k * Hd - (W + maxT) / 2); if (s0 < 0 || s0 + W + maxT >= nd) continue;
       let acc = 0; d[0] = 1;
       for (let t = 1; t <= maxT; t++) {
         let s = 0; for (let i = 0; i < W; i++) { const q = y[s0 + i] - y[s0 + i + t]; s += q * q; }
-        acc += s; d[t] = acc > 0 ? s * t / acc : 1;
+        acc += s; dr[t] = s; d[t] = acc > 0 ? s * t / acc : 1;
       }
       const lista = []; let mejor = 1;
       for (let t = minT; t < maxT && lista.length < 5; t++) {
         if (d[t] < 0.35 && d[t] <= d[t - 1] && d[t] <= d[t + 1]) {
-          const a = d[t - 1], c = d[t + 1], den = a - 2 * d[t] + c; const off = den > 0 ? 0.5 * (a - c) / den : 0;
-          lista.push({ f: fd / (t + clamp(off, -0.5, 0.5)), c: d[t] + 0.04 * lista.length }); if (d[t] < mejor) mejor = d[t];
+          // coste: el valor en el vértice de la parábola (con periodos cortos, el punto entero engaña y gana la octava de abajo)
+          const a = d[t - 1], c = d[t + 1], den = a - 2 * d[t] + c, cv = den > 0 ? d[t] - (a - c) * (a - c) / (8 * den) : d[t];
+          // la fracción del periodo, sobre la diferencia sin normalizar (la normalizada sesga hacia arriba en agudos)
+          const ar = dr[t - 1], br = dr[t], cr = dr[t + 1], den2 = ar - 2 * br + cr; const off = den2 > 0 ? 0.5 * (ar - cr) / den2 : 0;
+          lista.push({ f: fd / (t + clamp(off, -0.5, 0.5)), c: Math.max(0, cv) + 0.04 * lista.length }); if (cv < mejor) mejor = cv;
         }
       }
       if (mejor < 0.2) cand[k] = lista; // hay nota clara
@@ -1648,81 +1651,140 @@ function voxdspModule() {
     return { fs, H, f0 };
   }
   // Referencia de afinación de una grabación (cents respecto a La = 440): picos del espectro entre 80 Hz y
-  // 2 kHz, media circular de su desvío respecto al semitono, pesada por su fuerza. Con la base es fiable
-  // (instrumentos afinados entre sí); «Puertas» sale a un cuarto de tono de 440 y corregir hacia 440 la
-  // empujaría a notas equivocadas. Devuelve { cents, fuerza } (fuerza 0..1: lo concentrado que está).
+  // 2 kHz de cada canal (se suman los módulos: una base en contrafase también se mide), media circular de su
+  // desvío respecto al semitono, pesada por su fuerza. Con la base es fiable (instrumentos afinados entre sí).
+  // Devuelve { cents, fuerza 0..1, croma[12] } (croma: peso de cada nota en la rejilla medida; índice 9 = La).
   function referenciaAfinacion(chans, fs, maxSeg) {
-    const N = 8192, fft = new FFT(N), re = new Float64Array(N), im = new Float64Array(N), win = new Float64Array(N);
+    const N = 8192, fft = new FFT(N), re = new Float64Array(N), im = new Float64Array(N), win = new Float64Array(N), mag = new Float64Array(N / 2);
     for (let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
-    const len = Math.min(chans[0].length, Math.round((maxSeg || 90) * fs)), hop = N; // sin solape: basta y es rápido
-    const kMin = Math.ceil(80 * N / fs), kMax = Math.floor(2000 * N / fs);
-    let sx = 0, sy = 0, sw = 0;
-    for (let s = 0; s + N <= len; s += hop) {
-      for (let i = 0; i < N; i++) { let v = 0; for (const c of chans) v += c[s + i]; re[i] = (isFinite(v) ? v : 0) * win[i]; im[i] = 0; }
-      fft.run(re, im, false);
-      const mag = (k) => Math.sqrt(re[k] * re[k] + im[k] * im[k]);
-      let mx = 0; for (let k = kMin; k <= kMax; k++) { const m = mag(k); if (m > mx) mx = m; }
+    const len = Math.min(chans[0].length, Math.round((maxSeg || 90) * fs));
+    const kMin = Math.ceil(80 * N / fs), kMax = Math.min(N / 2 - 2, Math.floor(2000 * N / fs));
+    let sx = 0, sy = 0, sw = 0; const picos = [];
+    for (let s = 0; s + N <= len; s += N) {
+      mag.fill(0);
+      for (const c of chans) {
+        for (let i = 0; i < N; i++) { const v = c[s + i]; re[i] = (isFinite(v) ? v : 0) * win[i]; im[i] = 0; }
+        fft.run(re, im, false);
+        for (let k = kMin - 1; k <= kMax + 1; k++) mag[k] += Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+      }
+      let mx = 0; for (let k = kMin; k <= kMax; k++) if (mag[k] > mx) mx = mag[k];
       if (mx < 1e-6) continue;
       for (let k = kMin + 1; k < kMax; k++) {
-        const b = mag(k); if (b < mx * 0.05) continue; const a = mag(k - 1), c = mag(k + 1);
+        const b = mag[k]; if (b < mx * 0.05) continue; const a = mag[k - 1], c = mag[k + 1];
         if (b <= a || b < c) continue;
         const la = Math.log(a + 1e-12), lb = Math.log(b), lc = Math.log(c + 1e-12), den = la - 2 * lb + lc;
         const off = den < 0 ? 0.5 * (la - lc) / den : 0; const f = (k + clamp(off, -0.5, 0.5)) * fs / N;
         const ce = 1200 * Math.log2(f / 440), ang = 2 * Math.PI * ce / 100, w = b / mx;
-        sx += w * Math.cos(ang); sy += w * Math.sin(ang); sw += w;
+        sx += w * Math.cos(ang); sy += w * Math.sin(ang); sw += w; picos.push(ce, w);
       }
     }
-    if (sw <= 0) return { cents: 0, fuerza: 0 };
-    return { cents: Math.atan2(sy, sx) / (2 * Math.PI) * 100, fuerza: Math.hypot(sx, sy) / sw };
+    const croma = new Array(12).fill(0);
+    if (sw <= 0) return { cents: 0, fuerza: 0, croma };
+    const cents = Math.atan2(sy, sx) / (2 * Math.PI) * 100;
+    for (let i = 0; i < picos.length; i += 2) { const n = Math.round((picos[i] - cents) / 100) + 9; croma[((n % 12) + 12) % 12] += picos[i + 1]; }
+    const tot = croma.reduce((a, b) => a + b, 0) || 1; for (let i = 0; i < 12; i++) croma[i] /= tot;
+    return { cents, fuerza: Math.hypot(sx, sy) / sw, croma };
   }
-  // Afinación propia de la toma: media circular de sus notas sostenidas (ventanas de 200 ms con menos de
-  // 40 cents de recorrido). Si casi todas se desvían igual de la rejilla, la toma entera está desplazada.
+  // Centro de cada trozo con nota: media de ±100 ms dentro de su tramo (el vibrato se promedia).
+  function centrosAfinacion(an) {
+    const f0 = an.f0, n = f0.length, R = Math.max(1, Math.round(0.1 * an.fs / an.H));
+    const c = new Float64Array(n), cen = new Float64Array(n);
+    for (let k = 0; k < n; k++) c[k] = f0[k] > 0 ? 1200 * Math.log2(f0[k] / 440) : 0;
+    for (let k = 0; k < n;) {
+      if (!f0[k]) { k++; continue; }
+      let e = k; while (e < n && f0[e]) e++;
+      // suma acumulada: media de la ventana recortada a los bordes del tramo
+      const acc = new Float64Array(e - k + 1); for (let i = k; i < e; i++) acc[i - k + 1] = acc[i - k] + c[i];
+      for (let i = k; i < e; i++) { const a = Math.max(k, i - R), b = Math.min(e - 1, i + R); cen[i] = (acc[b - k + 1] - acc[a - k]) / (b - a + 1); }
+      k = e;
+    }
+    return { c, cen, R };
+  }
+  // Afinación propia de la toma: notas sostenidas (el centro se mueve menos de 40 cents en 200 ms, con
+  // cualquier vibrato), una por ventana sin solape. Si casi todas se desvían igual de la rejilla, la toma
+  // entera está desplazada. Devuelve { cents, fuerza, notas, lista } (lista: centros en cents de cada nota).
   function referenciaVoz(an) {
-    const f = an.f0, R = Math.max(1, Math.round(0.1 * an.fs / an.H)); let sx = 0, sy = 0, n = 0;
+    const f = an.f0, { cen, R } = centrosAfinacion(an); let sx = 0, sy = 0; const lista = [];
     for (let k = R; k < f.length - R;) {
-      let ok = true, mn = 1e9, mx = -1e9, s = 0;
-      for (let j = k - R; j <= k + R; j++) { if (!f[j]) { ok = false; break; } const c = 1200 * Math.log2(f[j] / 440); s += c; if (c < mn) mn = c; if (c > mx) mx = c; }
+      let ok = true, mn = 1e9, mx = -1e9;
+      for (let j = k - R; j <= k + R; j++) { if (!f[j]) { ok = false; break; } if (cen[j] < mn) mn = cen[j]; if (cen[j] > mx) mx = cen[j]; }
       if (!ok || mx - mn > 40) { k += 2; continue; }
-      const a = 2 * Math.PI * (s / (2 * R + 1)) / 100; sx += Math.cos(a); sy += Math.sin(a); n++; k += 2 * R + 1; // ventanas sin solape
+      const m = cen[k], a = 2 * Math.PI * m / 100; sx += Math.cos(a); sy += Math.sin(a); lista.push(m); k += 2 * R + 1;
     }
-    return n ? { cents: Math.atan2(sy, sx) / (2 * Math.PI) * 100, fuerza: Math.hypot(sx, sy) / n, notas: n } : { cents: 0, fuerza: 0, notas: 0 };
+    // notas cortas (staccato, frases rápidas): tramos de 80 ms a 200 ms con el centro quieto cuentan como una nota
+    const minF = Math.max(2, Math.round(0.08 * an.fs / an.H));
+    for (let k = 0; k < f.length;) {
+      if (!f[k]) { k++; continue; }
+      let e = k; while (e < f.length && f[e]) e++;
+      if (e - k >= minF && e - k < 2 * R + 1) {
+        let mn = 1e9, mx = -1e9, sm = 0; for (let j = k; j < e; j++) { if (cen[j] < mn) mn = cen[j]; if (cen[j] > mx) mx = cen[j]; sm += cen[j]; }
+        if (mx - mn <= 40) { const m = sm / (e - k), a = 2 * Math.PI * m / 100; sx += Math.cos(a); sy += Math.sin(a); lista.push(m); }
+      }
+      k = e;
+    }
+    const n = lista.length;
+    return n ? { cents: Math.atan2(sy, sx) / (2 * Math.PI) * 100, fuerza: Math.hypot(sx, sy) / n, notas: n, lista } : { cents: 0, fuerza: 0, notas: 0, lista };
   }
-  // Plan: rejilla (la de la base si se mide bien; si no, La = 440) y desplazamiento global de la toma.
-  // o.refBase: { cents, fuerza } de la base (opcional).
+  // Plan: rejilla y desplazamiento global de la toma.
+  //  · Con base medible (fuerza ≥ 0,2): rejilla de la base. Si la toma entera está desplazada, se mueve junta;
+  //    la dirección (subir o bajar) la decide qué notas encajan mejor con las de la base (croma); si no queda
+  //    claro y está a más de 40 cents (casi un cuarto de tono), no se mueve.
+  //  · Sin base, o con una base que no deja medir: la rejilla es la de la propia voz (nunca se fuerza La = 440).
+  // o.refBase: { cents, fuerza, croma } de la base (opcional).
   function planAfinacion(an, o) {
+    const rv = referenciaVoz(an), amt = clamp(num0(o.cantidad, 50), 0, 100) / 100;
     const rb = o.refBase && isFinite(o.refBase.cents) && o.refBase.fuerza >= 0.2 ? o.refBase : null;
-    const ref = rb ? clamp(rb.cents, -50, 50) : 0, rv = referenciaVoz(an);
-    let global = 0;
-    if (rv.notas >= 6 && rv.fuerza >= 0.35) { // la toma entera desplazada: se mueve junta (los intervalos no cambian)
-      let d = ref - rv.cents; d -= 100 * Math.round(d / 100);
-      if (Math.abs(d) >= 12) global = d * Math.min(1, 2 * clamp(num0(o.cantidad, 50), 0, 100) / 100); // entero a partir del 50 %
+    if (!rb) return { ref: rv.notas >= 4 && rv.fuerza >= 0.25 ? rv.cents : 0, global: 0, deBase: false, voz: rv, base: !!o.refBase };
+    const ref = clamp(rb.cents, -50, 50);
+    let global = 0, dudosa = false, desplaz = 0;
+    const peso = clamp((rv.fuerza - 0.2) / 0.2, 0, 1); // transición suave: sin escalones por un poco más o menos de ruido
+    if (rv.notas >= 6 && peso > 0) {
+      let d = ref - rv.cents; d -= 100 * Math.round(d / 100); // (−50, 50]
+      if (Math.abs(d) >= 8) {
+        const alt = d - 100 * Math.sign(d);
+        const encaje = (dd) => { if (!Array.isArray(rb.croma)) return 0; let s = 0; for (const m of rv.lista) { const nn = Math.round((m + dd - ref) / 100) + 9; s += rb.croma[((nn % 12) + 12) % 12] || 0; } return s; };
+        const e1 = encaje(d), e2 = encaje(alt);
+        const ad = Math.abs(d), claro = rv.notas >= 30 && rv.fuerza >= 0.5; // la base solo decide con una voz muy afinada consigo misma
+        if (ad <= 30) global = d; // lo cercano siempre hacia lo cercano: moverla 70–90 cents por el croma sería un error grave si falla
+        else if (ad <= 36) global = claro && e2 > e1 * 1.5 ? alt : d;
+        else if (claro && e2 > e1 * 1.25) global = alt;
+        else if (claro && e1 > e2 * 1.25) global = d;
+        else if (ad <= 44) global = d * (44 - ad) / 8; // zona del cuarto de tono sin decisión clara: cada vez menos (sin escalones)
+        else dudosa = true;
+        desplaz = global; global *= peso * Math.min(1, 2 * amt); // entero a partir del 50 %
+      }
     }
-    return { ref, global, deBase: !!rb, voz: rv };
+    // a un cuarto de tono y sin saber hacia dónde: no se toca (afinarla respecto a sí misma la alejaría más de la base)
+    if (dudosa) return { ref, global: 0, desplaz: 0, deBase: true, voz: rv, dudosa };
+    return { ref, global, desplaz, deBase: true, voz: rv, dudosa };
   }
-  // corrección en cents de cada trozo (0 donde no hay nota)
+  // corrección en cents de cada trozo
   function curvaAfinacion(an, o) {
     const plan = planAfinacion(an, o);
     const f0 = an.f0, n = f0.length, H = an.H, fs = an.fs;
     const amt = clamp(num0(o.cantidad, 50), 0, 100) / 100;
     const esc = ESCALAS[o.escala] || ESCALAS.cromatica, ton = Math.max(0, NOTAS.indexOf(o.tonica));
     const perm = new Array(12).fill(false); for (const g of esc) perm[(g + ton) % 12] = true;
-    const c = new Float64Array(n); for (let k = 0; k < n; k++) c[k] = f0[k] > 0 ? 1200 * Math.log2(f0[k] / 440) + 6900 - plan.ref + plan.global : 0; // cents MIDI sobre la rejilla, ya desplazada (La4 = 6900)
-    const corr = new Float64Array(n);
-    const R = Math.max(1, Math.round(0.1 * fs / H)), ramp = Math.max(1, Math.round(0.04 * fs / H));
+    const { cen: cen0, R } = centrosAfinacion(an);
+    const corr = new Float64Array(n).fill(plan.global); // en los huecos sin nota, el desplazamiento global (no suaviza hacia 0)
+    if (plan.dudosa) { corr.fill(0); corr.plan = plan; return corr; }
+    const ramp = Math.max(1, Math.round(0.04 * fs / H));
+    const sh = 6900 - plan.ref + plan.global; // cents MIDI sobre la rejilla, ya desplazada (La4 = 6900)
     const cerca = (cc) => { const m = Math.round(cc / 100); let best = m, bd = 1e9; for (let j = m - 2; j <= m + 2; j++) if (perm[((j % 12) + 12) % 12]) { const dd = Math.abs(cc - j * 100); if (dd < bd) { bd = dd; best = j; } } return best; };
     for (let k = 0; k < n;) {
       if (!f0[k]) { k++; continue; }
       let e = k; while (e < n && f0[e]) e++;
-      const cen = new Float64Array(e - k);
-      for (let i = k; i < e; i++) { let s = 0, m = 0; for (let j = Math.max(k, i - R); j <= Math.min(e - 1, i + R); j++) { s += c[j]; m++; } cen[i - k] = s / m; }
-      let nota = null;
+      // la primera nota se decide con una ventana completa (no con la media recortada del borde, que sigue el vibrato)
+      let nota = cerca(cen0[Math.min(e - 1, k + R)] + sh);
       for (let i = k; i < e; i++) {
-        const ce = cen[i - k];
-        if (nota === null || Math.abs(ce - nota * 100) > 65) nota = cerca(ce); // histéresis: no salta entre dos notas a medio camino
+        const ce = cen0[i] + sh;
+        if (Math.abs(ce - nota * 100) > 65) nota = cerca(ce); // histéresis: no salta entre dos notas a medio camino
         const dev = clamp(nota * 100 - ce, -100, 100);
-        const a = cen[Math.max(0, i - k - 1)], b = cen[Math.min(e - k - 1, i - k + 1)];
-        const pend = Math.abs(b - a) / (2 * H / fs); // cents por segundo del centro
-        let w = clamp(1 - (pend - 300) / 900, 0, 1); // deslizamientos y portamentos: se dejan
+        const a = cen0[Math.max(k, i - 1)], b = cen0[Math.min(e - 1, i + 1)];
+        const pend = Math.abs(b - a) / ((Math.min(e - 1, i + 1) - Math.max(k, i - 1) || 1) * H / fs); // cents por segundo del centro
+        let w = clamp(1 - (pend - 120) / 280, 0, 1); // deslizamientos: se dejan
+        const ia = Math.max(k, i - 2 * R), ib = Math.min(e - 1, i + 2 * R);
+        if (ib > ia) { const pl = Math.abs(cen0[ib] - cen0[ia]) / ((ib - ia) * H / fs); w = Math.min(w, clamp(1 - (pl - 30) / 40, 0, 1)); } // glissandos lentos (desde ~30 c/s): sin escalera; las derivas más lentas sí se afinan
         w *= Math.min(1, (i - k + 1) / ramp, (e - i) / ramp); // ataque y final de la frase: entran suaves
         corr[i] = plan.global + amt * dev * w;
       }
@@ -1730,51 +1792,93 @@ function voxdspModule() {
     }
     // suavizado ida y vuelta (sin retraso): «Velocidad» = lo rápido que llega a la nota
     const tau = 0.16 - 0.15 * clamp(num0(o.velocidad, 50), 0, 100) / 100, a = coefFor(tau, fs / H);
-    let z = 0; for (let k = 0; k < n; k++) { z = a * z + (1 - a) * corr[k]; corr[k] = z; }
-    z = 0; for (let k = n - 1; k >= 0; k--) { z = a * z + (1 - a) * corr[k]; corr[k] = z; }
+    let z = corr[0]; for (let k = 0; k < n; k++) { z = a * z + (1 - a) * corr[k]; corr[k] = z; }
+    z = corr[n - 1] || 0; for (let k = n - 1; k >= 0; k--) { z = a * z + (1 - a) * corr[k]; corr[k] = z; }
+    corr.plan = plan;
     return corr;
   }
-  function afinarVoz(x, fs, an, o) {
-    const n = x.length, f0 = an.f0, H = an.H, nF = f0.length;
+  // TD-PSOLA con marcas en los pulsos reales de la voz (máximo de la señal filtrada cerca de cada periodo):
+  // los trozos casan entre sí y no se cancelan. Las marcas de síntesis avanzan lo que separa a las de análisis
+  // dividido por la corrección: con corrección 0 caen exactamente sobre ellas y la voz sale idéntica.
+  function afinarVoz(x0, fs, an, o) {
+    const n = x0.length, x = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const v = x0[i]; x[i] = isFinite(v) ? v : 0; } // un NaN suelto no borra un trozo entero
+    if (!an || an.fs !== fs || !an.f0 || an.f0.length !== Math.ceil(n / an.H)) an = analizarAfinacion(x, fs);
+    else { const g = Float32Array.from(an.f0, (v) => (isFinite(v) && v >= 40 && v <= 2000 ? v : 0)); an = { fs: an.fs, H: an.H, f0: g }; } // de fuera (Worker): solo valores sanos
+    const f0 = an.f0, H = an.H, nF = f0.length;
     const corr = curvaAfinacion(an, o);
-    const y = new Float32Array(n), ws = new Float32Array(n);
-    const fAt = (t) => { const k = Math.min(nF - 1, Math.max(0, Math.round(t / H))); return f0[k]; };
+    let maxC = 0; for (let k = 0; k < nF; k++) if (f0[k] && Math.abs(corr[k]) > maxC) maxC = Math.abs(corr[k]);
+    if (maxC < 0.05) return x; // nada que corregir: la toma tal cual
+    // señal para colocar las marcas: sin graves ni agudos (el pulso de la nota)
+    const xl = new Float32Array(n), hp = new Biquad(design('highpass', 50, Math.SQRT1_2, 0, fs)), lp1 = new Biquad(design('lowpass', 900, Math.SQRT1_2, 0, fs)), lp2 = new Biquad(design('lowpass', 900, Math.SQRT1_2, 0, fs));
+    for (let i = 0; i < n; i++) xl[i] = lp2.process(lp1.process(hp.process(x[i])));
+    const fK = (t) => f0[Math.min(nF - 1, Math.max(0, Math.floor(t / H)))];
     const rAt = (t) => { const p = t / H, k = Math.min(nF - 1, Math.max(0, Math.floor(p))), k1 = Math.min(nF - 1, k + 1), u = clamp(p - k, 0, 1); return Math.pow(2, (corr[k] * (1 - u) + corr[k1] * u) / 1200); };
-    // marcas de análisis: una por periodo dentro de cada tramo con nota
-    const marcas = [], inicios = [];
+    // tramos con nota, en muestras [t0, t1), y sus marcas
+    const tramos = [];
     for (let k = 0; k < nF;) {
       if (!f0[k]) { k++; continue; }
       let e = k; while (e < nF && f0[e]) e++;
-      const t0 = k * H, t1 = Math.min(n, e * H); inicios.push(t0);
-      for (let m = t0; m < t1;) { marcas.push(m); m += Math.max(8, fs / (fAt(m) || 200)); }
+      const t0 = k * H, t1 = Math.min(n, e * H), marcas = [];
+      const pico = (a, b) => { let bi = a, bv = -Infinity; for (let i = Math.max(0, a); i < Math.min(n, b); i++) if (xl[i] > bv) { bv = xl[i]; bi = i; } return bi; };
+      let P = fs / (fK(t0) || 200), m = pico(t0, t0 + P);
+      while (m < t1) {
+        marcas.push(m);
+        P = fs / (fK(m) || 200);
+        const pred = m + P, q = Math.round(P / 4);
+        if (pred >= t1) break;
+        m = Math.max(m + Math.max(1, Math.round(P * 0.6)), pico(Math.round(pred) - q, Math.round(pred) + q + 1));
+      }
+      if (marcas.length >= 2) tramos.push({ t0, t1, marcas });
       k = e;
     }
-    const Pu = Math.round(0.006 * fs);
-    const grano = (s, a, L) => {
-      s = Math.round(s); a = Math.round(a); L = Math.max(4, Math.round(L));
-      for (let j = -L + 1; j < L; j++) {
-        const si = s + j, ai = a + j; if (si < 0 || si >= n) continue;
-        const w = 0.5 + 0.5 * Math.cos(Math.PI * j / L);
-        y[si] += (ai >= 0 && ai < n ? x[ai] : 0) * w; ws[si] += w;
+    const y = new Float32Array(n), ws = new Float32Array(n);
+    // ventana asimétrica: L1 hacia atrás, L2 hacia delante (Hann de cada lado). El grano se coloca con fracción de
+    // muestra (lectura interpolada): redondear la posición añadía jitter al periodo
+    const grano = (s, a, L1, L2) => {
+      a = Math.round(a); L1 = Math.max(2, L1); L2 = Math.max(2, L2);
+      const i0 = Math.max(0, Math.ceil(s - L1 + 1e-9)), i1 = Math.min(n - 1, Math.floor(s + L2 - 1e-9));
+      for (let si = i0; si <= i1; si++) {
+        const j = si - s, w = 0.5 + 0.5 * Math.cos(Math.PI * j / (j < 0 ? L1 : L2)), p = a + j, pi = Math.floor(p), u = p - pi;
+        const v0 = pi >= 0 && pi < n ? x[pi] : 0, v1 = pi + 1 >= 0 && pi + 1 < n ? x[pi + 1] : 0;
+        y[si] += (v0 + (v1 - v0) * u) * w; ws[si] += w;
       }
     };
-    let s = 0, mi = 0, ii = 0;
+    const Pu = Math.round(0.006 * fs);
+    let s = 0, ti = 0;
     while (s < n) {
-      const f = fAt(s);
-      if (f > 0) {
-        while (mi + 1 < marcas.length && Math.abs(marcas[mi + 1] - s) <= Math.abs(marcas[mi] - s)) mi++;
-        const P = fs / f;
-        grano(s, marcas.length ? marcas[mi] : s, P);
-        s += P / rAt(s);
+      while (ti < tramos.length && tramos[ti].marcas[tramos[ti].marcas.length - 1] < s) ti++;
+      const T = tramos[ti];
+      if (T && s >= T.marcas[0]) {
+        // dentro del tramo: marca de análisis más cercana y su periodo local (distancia a las vecinas)
+        const M = T.marcas; let lo = 0, hi = M.length - 1;
+        while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (M[mid] <= s) lo = mid; else hi = mid; }
+        const mi = Math.abs(M[hi] - s) < Math.abs(M[lo] - s) ? hi : lo;
+        const Pd = mi + 1 < M.length ? M[mi + 1] - M[mi] : M[mi] - M[mi - 1], Pa = mi > 0 ? M[mi] - M[mi - 1] : Pd;
+        // ajuste fino (WSOLA): con corrección, el trozo se desplaza hasta ±P/8 para casar con lo ya escrito (sin cancelaciones)
+        let src = M[mi]; const rr = rAt(s);
+        if (Math.abs(rr - 1) > 3e-4 && s - Pa > 0) {
+          const q = Math.max(1, Math.round(Pa / 8)), st = Pa > 200 ? 2 : 1, s0 = Math.round(s); let best = -Infinity;
+          for (let dlt = -q; dlt <= q; dlt++) {
+            let c = 0, e = 0;
+            for (let j = -Math.round(Pa) + 1; j <= 0; j += st) { const si = s0 + j, ai = M[mi] + dlt + j; if (si < 0 || ai < 0 || ai >= n) continue; const xv = x[ai]; c += y[si] * xv; e += xv * xv; }
+            const v = e > 0 ? c / Math.sqrt(e) : 0; if (v > best) { best = v; src = M[mi] + dlt; }
+          }
+        }
+        grano(s, src, Pa, Pd);
+        const sig = s + Pd / rAt(s);
+        if (mi === M.length - 1 && sig > M[mi]) { // fin del tramo: la síntesis vuelve a su sitio
+          s = Math.max(s + 1, Math.round(sig));
+        } else s = sig;
       } else {
-        grano(s, s, Pu);
-        let sig = s + Pu;
-        while (ii < inicios.length && inicios[ii] <= s) ii++;
-        if (ii < inicios.length && inicios[ii] < sig) sig = inicios[ii]; // al entrar en una nota, la marca coincide con la del análisis
-        s = sig;
+        // sin nota: copia en su sitio; el último trozo se acorta para llegar justo a la primera marca del siguiente tramo
+        const prox = T ? T.marcas[0] : Infinity;
+        const L = Math.min(Pu, Math.max(2, prox - s));
+        grano(s, s, Pu, L);
+        s = s + L >= prox ? prox : s + L;
       }
     }
-    for (let i = 0; i < n; i++) { const v = y[i] / Math.max(ws[i], 0.25); y[i] = isFinite(v) ? v : 0; }
+    for (let i = 0; i < n; i++) { const v = ws[i] > 1e-3 ? y[i] / ws[i] : x[i]; y[i] = isFinite(v) ? v : 0; }
     return y;
   }
 
@@ -1916,7 +2020,7 @@ function voxdspModule() {
   const api = {
     dbToLin, linToDb, clamp, design, biquadMag, Biquad, butterworthStages, bandStages, eqResponseDb, DelayLine,
     Upsampler4, Downsampler4, OS_H, kWeighting, LufsMeter, truePeak, analyzeLoudness, gainComputer, compStatic, compTransfer, FET_TABLE,
-    Compressor, Gate, Corrector, CoroBus, PistaEQ, Realce, FFT, Suavizador, Armonicos, NOTAS, notaHz, ESCALAS, analizarAfinacion, referenciaAfinacion, referenciaVoz, planAfinacion, curvaAfinacion, afinarVoz, Equalizer, DeEsser, Saturator, Doubler, StereoDelay, PlateReverb, FdnReverb, Reverb, Limiter, Rider,
+    Compressor, Gate, Corrector, CoroBus, PistaEQ, Realce, FFT, Suavizador, Armonicos, NOTAS, notaHz, ESCALAS, analizarAfinacion, referenciaAfinacion, centrosAfinacion, referenciaVoz, planAfinacion, curvaAfinacion, afinarVoz, Equalizer, DeEsser, Saturator, Doubler, StereoDelay, PlateReverb, FdnReverb, Reverb, Limiter, Rider,
     VoxEngine, defaultParams, mergeParams, validarParams, prepararParams, DIVISIONES, delaySeconds,
   };
 
