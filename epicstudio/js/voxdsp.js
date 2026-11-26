@@ -1855,17 +1855,7 @@ function voxdspModule() {
         while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (M[mid] <= s) lo = mid; else hi = mid; }
         const mi = Math.abs(M[hi] - s) < Math.abs(M[lo] - s) ? hi : lo;
         const Pd = mi + 1 < M.length ? M[mi + 1] - M[mi] : M[mi] - M[mi - 1], Pa = mi > 0 ? M[mi] - M[mi - 1] : Pd;
-        // ajuste fino (WSOLA): con corrección, el trozo se desplaza hasta ±P/8 para casar con lo ya escrito (sin cancelaciones)
-        let src = M[mi]; const rr = rAt(s);
-        if (Math.abs(rr - 1) > 3e-4 && s - Pa > 0) {
-          const q = Math.max(1, Math.round(Pa / 8)), st = Pa > 200 ? 2 : 1, s0 = Math.round(s); let best = -Infinity;
-          for (let dlt = -q; dlt <= q; dlt++) {
-            let c = 0, e = 0;
-            for (let j = -Math.round(Pa) + 1; j <= 0; j += st) { const si = s0 + j, ai = M[mi] + dlt + j; if (si < 0 || ai < 0 || ai >= n) continue; const xv = x[ai]; c += y[si] * xv; e += xv * xv; }
-            const v = e > 0 ? c / Math.sqrt(e) : 0; if (v > best) { best = v; src = M[mi] + dlt; }
-          }
-        }
-        grano(s, src, Pa, Pd);
+        grano(s, M[mi], Pa, Pd); // (un ajuste fino tipo WSOLA alineaba con la cola del trozo anterior y deshacía la corrección: descartado)
         const sig = s + Pd / rAt(s);
         if (mi === M.length - 1 && sig > M[mi]) { // fin del tramo: la síntesis vuelve a su sitio
           s = Math.max(s + 1, Math.round(sig));
